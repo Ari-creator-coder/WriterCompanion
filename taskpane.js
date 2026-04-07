@@ -302,13 +302,12 @@ function renderArchiveCard(docName, db) {
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     const L_id = `L_${Date.now()}`; const B_id = `B_${Date.now()}`;
     
-    // 💡 修复：使用 onmousedown 抢先触发点击，浅灰色文字放在右下角
     card.innerHTML = `
         <div style="font-size: 16px; font-weight: 600; color: #323130; margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${docName}">📄 ${docName}</div>
         <div style="flex:1; position: relative;"><canvas id="${L_id}"></canvas></div>
         <div style="flex:1; position: relative;"><canvas id="${B_id}"></canvas></div>
         <div style="text-align: right; margin-top: 5px;">
-            <button onmousedown="deleteArchive('${docName}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
+            <button onclick="deleteArchive('${docName}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
         </div>
     `;
     container.appendChild(card);
@@ -320,7 +319,8 @@ function renderArchiveCard(docName, db) {
     }, 0);
 }
 
-function deleteArchive(docName) {
+// 档案删除逻辑
+window.deleteArchive = function(docName) {
     if(confirm('确定删除吗？')) {
         let db = []; try { db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
         db = db.filter(r => r.docName !== docName);
@@ -394,20 +394,21 @@ function renderPromptCard(id) {
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     
-    // 💡 修复：使用 onmousedown 抢夺焦点，避免 input 的 onblur 提前刷新导致按钮消失失效
     card.innerHTML = `
         <input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none; font-size: 16px; color: #323130;">
         <textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px; color: #605e5c;">${p.content}</textarea>
         <div style="text-align: right; margin-top: 5px;">
-            <button onmousedown="deletePrompt('${id}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
+            <button onclick="deletePrompt('${id}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
         </div>
     `;
     container.appendChild(card);
 }
 
-function deletePrompt(id) {
+// 提示词删除逻辑
+window.deletePrompt = function(id) {
     if(confirm('确定删除吗？')) {
         customPrompts = customPrompts.filter(p => p.id !== id);
+        // 如果删光了，给一个默认兜底兜住
         if(customPrompts.length === 0) {
             customPrompts = [{ id: 'p_1', title: '基础润色', content: '你是一个资深的文字编辑。帮我润色文字，直接输出结果。' }];
         }
@@ -471,7 +472,6 @@ async function handleAiChat() {
     addChatMessage(text, 'user');
     inputEl.value = ''; inputEl.style.height = '20px';
     
-    // 💡 修复：此处已完美改成“思考中...”
     addChatMessage("思考中...", 'ai', true);
     
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
