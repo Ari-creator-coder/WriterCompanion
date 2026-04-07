@@ -252,10 +252,8 @@ function renderArchive() {
     list.innerHTML = '';
     if (docs.length === 0) { document.getElementById('archive-card-container').innerHTML = '<div style="font-size: 12px; color: #999; text-align: center; width: 100%; margin-top: 20px;">暂无档案</div>'; return; }
     
-    // 如果没有选中的文档，或者选中的文档被删除了，默认选中第一个
     if (!selectedArchiveDoc || !docs.includes(selectedArchiveDoc)) selectedArchiveDoc = docs[0];
 
-    // 将当前选中的置顶
     let sortedDocs = [...docs];
     const activeIndex = sortedDocs.indexOf(selectedArchiveDoc);
     if(activeIndex > 0) {
@@ -274,7 +272,6 @@ function renderArchive() {
         list.appendChild(item);
     });
 
-    // 渲染省略号或收起按钮
     if (!showAllDocs && sortedDocs.length > maxShow) {
         const moreBtn = document.createElement('div');
         moreBtn.className = 'doc-list-item';
@@ -305,13 +302,13 @@ function renderArchiveCard(docName, db) {
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     const L_id = `L_${Date.now()}`; const B_id = `B_${Date.now()}`;
     
-    // 💡【核心修改】浅灰色、文字“删除”、放置于右下角
+    // 💡 修复：使用 onmousedown 抢先触发点击，浅灰色文字放在右下角
     card.innerHTML = `
         <div style="font-size: 16px; font-weight: 600; color: #323130; margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${docName}">📄 ${docName}</div>
         <div style="flex:1; position: relative;"><canvas id="${L_id}"></canvas></div>
         <div style="flex:1; position: relative;"><canvas id="${B_id}"></canvas></div>
         <div style="text-align: right; margin-top: 5px;">
-            <button onclick="deleteArchive('${docName}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
+            <button onmousedown="deleteArchive('${docName}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
         </div>
     `;
     container.appendChild(card);
@@ -323,16 +320,15 @@ function renderArchiveCard(docName, db) {
     }, 0);
 }
 
-// 档案删除逻辑
-window.deleteArchive = function(docName) {
+function deleteArchive(docName) {
     if(confirm('确定删除吗？')) {
         let db = []; try { db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
         db = db.filter(r => r.docName !== docName);
         localStorage.setItem('writerCompanionDB', JSON.stringify(db));
-        selectedArchiveDoc = null; // 重置选中项
+        selectedArchiveDoc = null; 
         renderArchive();
     }
-};
+}
 
 // ==================== 提示词管理 ====================
 function initPrompts() {
@@ -352,7 +348,6 @@ function renderPromptList() {
     const list = document.getElementById('prompt-list'); if(!list) return;
     list.innerHTML = '';
     
-    // 将当前使用的提示词置顶
     let sortedPrompts = [...customPrompts];
     const activeIndex = sortedPrompts.findIndex(p => p.id === activePromptId);
     if(activeIndex > 0) {
@@ -371,7 +366,6 @@ function renderPromptList() {
         list.appendChild(item);
     });
 
-    // 渲染省略号或收起按钮
     if (!showAllPrompts && sortedPrompts.length > maxShow) {
         const moreBtn = document.createElement('div');
         moreBtn.className = 'doc-list-item';
@@ -400,22 +394,20 @@ function renderPromptCard(id) {
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     
-    // 💡【核心修改】浅灰色、文字“删除”、放置于右下角
+    // 💡 修复：使用 onmousedown 抢夺焦点，避免 input 的 onblur 提前刷新导致按钮消失失效
     card.innerHTML = `
         <input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none; font-size: 16px; color: #323130;">
         <textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px; color: #605e5c;">${p.content}</textarea>
         <div style="text-align: right; margin-top: 5px;">
-            <button onclick="deletePrompt('${id}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
+            <button onmousedown="deletePrompt('${id}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
         </div>
     `;
     container.appendChild(card);
 }
 
-// 提示词删除逻辑
-window.deletePrompt = function(id) {
+function deletePrompt(id) {
     if(confirm('确定删除吗？')) {
         customPrompts = customPrompts.filter(p => p.id !== id);
-        // 如果删光了，给一个默认兜底兜住
         if(customPrompts.length === 0) {
             customPrompts = [{ id: 'p_1', title: '基础润色', content: '你是一个资深的文字编辑。帮我润色文字，直接输出结果。' }];
         }
@@ -423,7 +415,7 @@ window.deletePrompt = function(id) {
         savePromptsData();
         renderPromptList();
     }
-};
+}
 
 function saveCurrentPromptEdit(id) {
     const p = customPrompts.find(x => x.id === id);
@@ -479,7 +471,7 @@ async function handleAiChat() {
     addChatMessage(text, 'user');
     inputEl.value = ''; inputEl.style.height = '20px';
     
-    // 💡【核心修改】改成“思考中...”
+    // 💡 修复：此处已完美改成“思考中...”
     addChatMessage("思考中...", 'ai', true);
     
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
