@@ -30,7 +30,7 @@ Office.onReady(async (info) => {
         // 1. 初始化模块
         renderTable();
         initPrompts();
-        setupInlineApiKeyUI(); // 激活智能 API UI
+        setupInlineApiKeyUI(); 
 
         // 2. 绑定基础控件
         const slider = document.getElementById("time-slider");
@@ -67,19 +67,15 @@ Office.onReady(async (info) => {
         if(aiInput) {
             let lastEnterTime = 0; 
             aiInput.addEventListener('keydown', function(e) {
-                // 输入法组合文字时不触发
                 if (e.isComposing || e.keyCode === 229) return;
-
                 if (e.key === 'Enter' && !e.shiftKey) {
                     const now = Date.now();
-                    // 400ms 内连敲两次发送
                     if (now - lastEnterTime < 400) {
                         e.preventDefault(); 
                         handleAiChat();
                         lastEnterTime = 0; 
                     } else {
                         lastEnterTime = now;
-                        // 允许默认换行行为
                     }
                 }
             });
@@ -114,7 +110,6 @@ function setupInlineApiKeyUI() {
 
     if(!chatHeader || !providerSelect || !keyInput) return;
 
-    // 智能初始化：有 Key 隐藏，没 Key 显示
     function checkVisibility() {
         const key = getApiKey(providerSelect.value);
         container.style.display = (key && key.length > 0) ? "none" : "flex";
@@ -123,7 +118,6 @@ function setupInlineApiKeyUI() {
 
     checkVisibility();
 
-    // 点击表头切换显示
     chatHeader.addEventListener("click", (e) => {
         if (e.target === providerSelect) return;
         container.style.display = (container.style.display === "none") ? "flex" : "none";
@@ -134,7 +128,6 @@ function setupInlineApiKeyUI() {
         checkVisibility();
     });
 
-    // 回车保存并自动收起
     keyInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.keyCode === 13) {
             e.preventDefault();
@@ -170,13 +163,11 @@ function switchTab(tabName) {
     if (tabName === 'prompt') renderPromptList();
 }
 
-// ==================== 计时与历史 (已修复后台运行变慢问题) ====================
+// ==================== 计时与历史 ====================
 function startTimer() {
     isRunning = true;
     const minutes = document.getElementById("time-slider").value;
     timeLeft = timeLeft || minutes * 60;
-
-    // 【核心修复】：记录一个绝对的“结束时刻”
     const expectedEndTime = Date.now() + (timeLeft * 1000);
 
     document.getElementById("controls-wrapper").style.display = "none";
@@ -187,13 +178,9 @@ function startTimer() {
     
     if (timer) clearInterval(timer);
     timer = setInterval(() => {
-        // 【核心修复】：通过当前时刻与结束时刻的差值来计算剩余秒数
-        // 这样即使 setInterval 被浏览器延迟触发，timeLeft 依然是准的
         const now = Date.now();
         timeLeft = Math.max(0, Math.ceil((expectedEndTime - now) / 1000));
-        
         updateDisplay();
-        
         if (timeLeft <= 0) {
             completeSession();
         }
@@ -256,22 +243,56 @@ function renderTable() {
     });
 }
 
-// ==================== 档案与提示词管理 (完整保留逻辑) ====================
+// ==================== 档案管理 ====================
 function renderArchive() {
     let db = []; try { db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
     let docs = [...new Set(db.map(r => r.docName))];
     const list = document.getElementById('archive-doc-list');
     if(!list) return;
     list.innerHTML = '';
-    if (docs.length === 0) { document.getElementById('archive-card-container').innerHTML = '暂无档案'; return; }
-    if (!selectedArchiveDoc) selectedArchiveDoc = docs[0];
-    docs.forEach(name => {
+    if (docs.length === 0) { document.getElementById('archive-card-container').innerHTML = '<div style="font-size: 12px; color: #999; text-align: center; width: 100%; margin-top: 20px;">暂无档案</div>'; return; }
+    
+    // 如果没有选中的文档，或者选中的文档被删除了，默认选中第一个
+    if (!selectedArchiveDoc || !docs.includes(selectedArchiveDoc)) selectedArchiveDoc = docs[0];
+
+    // 将当前选中的置顶
+    let sortedDocs = [...docs];
+    const activeIndex = sortedDocs.indexOf(selectedArchiveDoc);
+    if(activeIndex > 0) {
+        const activeItem = sortedDocs.splice(activeIndex, 1)[0];
+        sortedDocs.unshift(activeItem);
+    }
+
+    const maxShow = 5;
+    const toShow = showAllDocs ? sortedDocs : sortedDocs.slice(0, maxShow);
+
+    toShow.forEach(name => {
         const item = document.createElement('div');
         item.className = `doc-list-item ${name === selectedArchiveDoc ? 'active' : ''}`;
         item.innerText = name;
         item.onclick = () => { selectedArchiveDoc = name; renderArchive(); };
         list.appendChild(item);
     });
+
+    // 渲染省略号或收起按钮
+    if (!showAllDocs && sortedDocs.length > maxShow) {
+        const moreBtn = document.createElement('div');
+        moreBtn.className = 'doc-list-item';
+        moreBtn.style.textAlign = 'center';
+        moreBtn.style.color = '#a19f9d';
+        moreBtn.innerText = '...';
+        moreBtn.onclick = () => { showAllDocs = true; renderArchive(); };
+        list.appendChild(moreBtn);
+    } else if (showAllDocs && sortedDocs.length > maxShow) {
+        const lessBtn = document.createElement('div');
+        lessBtn.className = 'doc-list-item';
+        lessBtn.style.textAlign = 'center';
+        lessBtn.style.color = '#a19f9d';
+        lessBtn.innerText = '收起 ∧';
+        lessBtn.onclick = () => { showAllDocs = false; renderArchive(); };
+        list.appendChild(lessBtn);
+    }
+
     renderArchiveCard(selectedArchiveDoc, db);
 }
 
@@ -283,7 +304,16 @@ function renderArchiveCard(docName, db) {
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     const L_id = `L_${Date.now()}`; const B_id = `B_${Date.now()}`;
-    card.innerHTML = `<div style="font-size: 16px; font-weight: 600; margin-bottom: 10px;color: #323130;">📄 ${docName}</div><div style="flex:1"><canvas id="${L_id}"></canvas></div><div style="flex:1"><canvas id="${B_id}"></canvas></div>`;
+    
+    // 💡【核心修改】浅灰色、文字“删除”、放置于右下角
+    card.innerHTML = `
+        <div style="font-size: 16px; font-weight: 600; color: #323130; margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${docName}">📄 ${docName}</div>
+        <div style="flex:1; position: relative;"><canvas id="${L_id}"></canvas></div>
+        <div style="flex:1; position: relative;"><canvas id="${B_id}"></canvas></div>
+        <div style="text-align: right; margin-top: 5px;">
+            <button onclick="deleteArchive('${docName}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
+        </div>
+    `;
     container.appendChild(card);
     setTimeout(() => {
         const ctxL = document.getElementById(L_id).getContext('2d');
@@ -293,6 +323,18 @@ function renderArchiveCard(docName, db) {
     }, 0);
 }
 
+// 档案删除逻辑
+window.deleteArchive = function(docName) {
+    if(confirm('确定删除吗？')) {
+        let db = []; try { db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
+        db = db.filter(r => r.docName !== docName);
+        localStorage.setItem('writerCompanionDB', JSON.stringify(db));
+        selectedArchiveDoc = null; // 重置选中项
+        renderArchive();
+    }
+};
+
+// ==================== 提示词管理 ====================
 function initPrompts() {
     const def = [{ id: 'p_1', title: '基础润色', content: '你是一个资深的文字编辑。帮我润色文字，直接输出结果。' }];
     try { customPrompts = JSON.parse(localStorage.getItem('writerPrompts')) || def; activePromptId = localStorage.getItem('writerActivePrompt'); } catch(e) { customPrompts = def; }
@@ -309,13 +351,45 @@ function updatePromptCapsule() {
 function renderPromptList() {
     const list = document.getElementById('prompt-list'); if(!list) return;
     list.innerHTML = '';
-    customPrompts.forEach(p => {
+    
+    // 将当前使用的提示词置顶
+    let sortedPrompts = [...customPrompts];
+    const activeIndex = sortedPrompts.findIndex(p => p.id === activePromptId);
+    if(activeIndex > 0) {
+        const activeItem = sortedPrompts.splice(activeIndex, 1)[0];
+        sortedPrompts.unshift(activeItem);
+    }
+
+    const maxShow = 5;
+    const toShow = showAllPrompts ? sortedPrompts : sortedPrompts.slice(0, maxShow);
+
+    toShow.forEach(p => {
         const item = document.createElement('div');
         item.className = `doc-list-item ${p.id === activePromptId ? 'active' : ''}`;
         item.innerText = p.title;
         item.onclick = () => { activePromptId = p.id; savePromptsData(); renderPromptList(); };
         list.appendChild(item);
     });
+
+    // 渲染省略号或收起按钮
+    if (!showAllPrompts && sortedPrompts.length > maxShow) {
+        const moreBtn = document.createElement('div');
+        moreBtn.className = 'doc-list-item';
+        moreBtn.style.textAlign = 'center';
+        moreBtn.style.color = '#a19f9d';
+        moreBtn.innerText = '...';
+        moreBtn.onclick = () => { showAllPrompts = true; renderPromptList(); };
+        list.appendChild(moreBtn);
+    } else if (showAllPrompts && sortedPrompts.length > maxShow) {
+        const lessBtn = document.createElement('div');
+        lessBtn.className = 'doc-list-item';
+        lessBtn.style.textAlign = 'center';
+        lessBtn.style.color = '#a19f9d';
+        lessBtn.innerText = '收起 ∧';
+        lessBtn.onclick = () => { showAllPrompts = false; renderPromptList(); };
+        list.appendChild(lessBtn);
+    }
+
     renderPromptCard(activePromptId);
 }
 
@@ -325,9 +399,31 @@ function renderPromptCard(id) {
     const p = customPrompts.find(x => x.id === id);
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
-    card.innerHTML = `<input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none;font-size: 16px;color: #323130;"><textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px;">${p.content}</textarea>`;
+    
+    // 💡【核心修改】浅灰色、文字“删除”、放置于右下角
+    card.innerHTML = `
+        <input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none; font-size: 16px; color: #323130;">
+        <textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px; color: #605e5c;">${p.content}</textarea>
+        <div style="text-align: right; margin-top: 5px;">
+            <button onclick="deletePrompt('${id}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
+        </div>
+    `;
     container.appendChild(card);
 }
+
+// 提示词删除逻辑
+window.deletePrompt = function(id) {
+    if(confirm('确定删除吗？')) {
+        customPrompts = customPrompts.filter(p => p.id !== id);
+        // 如果删光了，给一个默认兜底兜住
+        if(customPrompts.length === 0) {
+            customPrompts = [{ id: 'p_1', title: '基础润色', content: '你是一个资深的文字编辑。帮我润色文字，直接输出结果。' }];
+        }
+        activePromptId = customPrompts[0].id;
+        savePromptsData();
+        renderPromptList();
+    }
+};
 
 function saveCurrentPromptEdit(id) {
     const p = customPrompts.find(x => x.id === id);
@@ -363,7 +459,7 @@ function playAudio(type, el) {
     el.style.opacity = "1"; document.getElementById("stop-audio-btn").style.display = "inline-flex";
 }
 
-// ==================== 🔒 核心 AI 聊天逻辑 (GLM-5 适配) ====================
+// ==================== 🔒 核心 AI 聊天逻辑 ====================
 
 async function handleAiChat() {
     const inputEl = document.getElementById("ai-input");
@@ -382,7 +478,9 @@ async function handleAiChat() {
 
     addChatMessage(text, 'user');
     inputEl.value = ''; inputEl.style.height = '20px';
-    addChatMessage("连接中...", 'ai', true);
+    
+    // 💡【核心修改】改成“思考中...”
+    addChatMessage("思考中...", 'ai', true);
     
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
     let requestBody = {
@@ -431,7 +529,6 @@ async function handleAiChat() {
                     try {
                         const data = JSON.parse(dataStr);
                         const delta = data.choices[0].delta;
-                        // 忽略 reasoning_content 思考过程，只流式显示 content 正文
                         if (delta && delta.content) {
                             fullContent += delta.content;
                             streamMsgDiv.innerText = fullContent;
