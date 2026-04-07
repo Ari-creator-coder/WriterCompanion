@@ -14,6 +14,7 @@ let customPrompts = [];
 let activePromptId = null;
 let showAllPrompts = false;
 
+
 Office.onReady(async (info) => {
     if (info.host === Office.HostType.Word) {
         try {
@@ -26,7 +27,8 @@ Office.onReady(async (info) => {
         // 初始化存储数据
         renderTable();
         initPrompts();
-        loadStoredApiKeys(); // 🔒 安全强化：初始化时加载已存的 Key
+        setupInlineApiKeyUI(); // ⚡️ 激活全新的顶部栏 API Key 逻辑
+
 
         const slider = document.getElementById("time-slider");
         const display = document.getElementById("time-display");
@@ -256,17 +258,27 @@ function renderArchiveCard(docName, db) {
     const records = db.filter(r => r.docName === docName);
     if (records.length === 0) return;
     const todayStr = new Date().toLocaleDateString('zh-CN');
+    
+    // 🔒 修复：生成唯一图表ID，防止异步渲染导致冲突
+    const safeName = docName.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '');
+    const L_id = `L_${safeName}_${Date.now()}`;
+    const B_id = `B_${safeName}_${Date.now()}`;
+
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 100%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative;";
-    card.innerHTML = `<div style="font-size: 13px; color: #605e5c; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 10px;" title="${docName}">📄 ${docName}</div><div style="font-size: 11px; color: #8a8886; margin-bottom: 4px;">今日趋势</div><div style="flex: 1; min-height: 0; margin-bottom: 10px;"><canvas id="L_archive"></canvas></div><div style="font-size: 11px; color: #8a8886; margin-bottom: 4px;">每日字数</div><div style="flex: 1; min-height: 0; margin-bottom: 5px;"><canvas id="B_archive"></canvas></div><div style="text-align: right; margin-top: auto;"><button id="del-btn-archive" onclick="deleteDocRecords('${docName}')" style="background: transparent; border: none; color: #a19f9d; font-size: 10px; cursor: pointer; text-decoration: underline; padding: 0; transition: color 0.3s;">删除</button></div>`;
+    card.innerHTML = `<div style="font-size: 13px; color: #605e5c; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 10px;" title="${docName}">📄 ${docName}</div><div style="font-size: 11px; color: #8a8886; margin-bottom: 4px;">今日趋势</div><div style="flex: 1; min-height: 0; margin-bottom: 10px;"><canvas id="${L_id}"></canvas></div><div style="font-size: 11px; color: #8a8886; margin-bottom: 4px;">每日字数</div><div style="flex: 1; min-height: 0; margin-bottom: 5px;"><canvas id="${B_id}"></canvas></div><div style="text-align: right; margin-top: auto;"><button id="del-btn-archive" onclick="deleteDocRecords('${docName}')" style="background: transparent; border: none; color: #a19f9d; font-size: 10px; cursor: pointer; text-decoration: underline; padding: 0; transition: color 0.3s;">删除</button></div>`;
     container.appendChild(card);
+    
     setTimeout(() => {
         const todayData = records.filter(r => r.date === todayStr);
-        const ctxL = document.getElementById(`L_archive`).getContext('2d');
+        const ctxLEl = document.getElementById(L_id);
+        if(!ctxLEl) return; // 确保 DOM 依然存在才渲染
+        const ctxL = ctxLEl.getContext('2d');
         archiveCharts.push(new Chart(ctxL, { type: 'line', data: { labels: todayData.map(r => r.time), datasets: [{ data: todayData.map(r => r.count), borderColor: '#605e5c', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }));
+        
         let daily = {}; 
         records.forEach(r => { if(!daily[r.date] || r.count > daily[r.date]) daily[r.date] = r.count; });
-        const ctxB = document.getElementById(`B_archive`).getContext('2d');
+        const ctxB = document.getElementById(B_id).getContext('2d');
         archiveCharts.push(new Chart(ctxB, { type: 'bar', data: { labels: Object.keys(daily), datasets: [{ data: Object.values(daily), backgroundColor: '#605e5c', maxBarThickness: 30 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }));
     }, 0);
 }
@@ -409,7 +421,7 @@ function playAudio(type, el) {
     document.getElementById("stop-audio-btn").style.display = "inline-flex";
 }
 
-// ==================== 🔒 安全强化：AI 接口逻辑 ====================
+// ==================== 🔒 进化：AI 接口与流式输出 ====================
 
 async function handleAiChat() {
     const inputEl = document.getElementById("ai-input");
@@ -419,11 +431,9 @@ async function handleAiChat() {
     const provider = document.getElementById('api-provider').value;
     const isDeepThink = document.getElementById('deep-think-toggle').checked;
 
-    // 🔒 从本地存储获取 Key，不再硬编码
     const storedDsKey = localStorage.getItem('writer_ds_key');
     const storedGlmKey = localStorage.getItem('writer_glm_key');
     
-    // 检查 Key 是否存在
     if (provider === 'deepseek' && !storedDsKey) {
         addChatMessage("⚠️ 未检测到 DeepSeek Key，请在设置中输入并保存。", 'ai');
         return;
@@ -437,7 +447,8 @@ async function handleAiChat() {
     inputEl.value = ''; 
     inputEl.style.height = '20px';
     
-    const loadingText = isDeepThink ? "思考中..." : "正在排版与润色...";
+    const loadingText = "连接中...";
+    // 插入一个临时的 loading 状态
     addChatMessage(loadingText, 'ai', true);
     
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
@@ -445,11 +456,14 @@ async function handleAiChat() {
 
     let apiUrl = '';
     let apiKey = (provider === 'deepseek') ? storedDsKey : storedGlmKey;
+    
+    // 💡 修复：移除不兼容的 thinking 参数，增加 stream: true
     let requestBody = {
         messages: [
             { role: "system", content: systemPromptContent }, 
             { role: "user", content: text }
-        ]
+        ],
+        stream: true 
     };
 
     if (provider === 'deepseek') {
@@ -457,38 +471,81 @@ async function handleAiChat() {
         requestBody.model = isDeepThink ? 'deepseek-reasoner' : 'deepseek-chat';
     } else {
         apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-        requestBody.model = 'glm-4'; // 注意：通常是 glm-4，根据实际文档调整
-        if (isDeepThink) requestBody.thinking = { type: "enabled" };
+        requestBody.model = 'glm-4'; 
     }
 
     try {
         const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${apiKey}` 
+            },
             body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) throw new Error(`连接失败 (HTTP ${response.status})`);
-
-        const data = await response.json();
+        
         removeLoadingMessage();
-        if (data.choices && data.choices[0]) {
-            addChatMessage(data.choices[0].message.content, 'ai');
-        } else {
-            throw new Error("接口未返回有效内容");
+        
+        // 💡 创建一个空白的 AI 消息气泡，用来承载流式打字输出
+        const streamMsgDiv = addChatMessage("", 'ai');
+        let fullContent = "";
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            
+            // 保留最后一个可能不完整的分块
+            buffer = lines.pop(); 
+
+            for (const line of lines) {
+                if (line.trim() === '') continue;
+                if (line.startsWith('data: ')) {
+                    const dataStr = line.slice(6).trim();
+                    if (dataStr === '[DONE]') continue;
+                    
+                    try {
+                        const data = JSON.parse(dataStr);
+                        const delta = data.choices[0].delta;
+                        
+                        // 💡 核心：只提取 content，忽略思考过程 (reasoning_content)
+                        if (delta && delta.content) {
+                            fullContent += delta.content;
+                            streamMsgDiv.innerText = fullContent;
+                            
+                            // 保持滚动条在最底部
+                            const chatHistory = document.getElementById("chat-history");
+                            chatHistory.scrollTop = chatHistory.scrollHeight;
+                        }
+                    } catch (e) {
+                        // 忽略单个残缺 JSON 解析错误，继续读取流
+                    }
+                }
+            }
         }
 
     } catch (e) { 
         removeLoadingMessage(); 
-        addChatMessage(`⚠️ 报错: ${e.message}\n请检查网络或确认 API Key 是否正确。`, 'ai'); 
+        addChatMessage(`⚠️ 报错: ${e.message}\n请检查网络或确认 API Key 是否有效。`, 'ai'); 
     }
 }
 
+// 💡 更新：返回创建的 DOM 元素，以支持后续的流式文本拼接
 function addChatMessage(text, sender, isLoading = false) {
     const chatHistory = document.getElementById("chat-history");
-    if(!chatHistory) return;
+    if(!chatHistory) return null;
+    
     const msgDiv = document.createElement('div');
     msgDiv.style.cssText = "padding: 8px 12px; border-radius: 12px; max-width: 85%; font-size: 13px; margin-bottom: 5px; word-break: break-word; white-space: pre-wrap;";
+    
     if (sender === 'user') { 
         msgDiv.style.alignSelf = 'flex-end'; 
         msgDiv.style.background = '#605e5c'; 
@@ -501,9 +558,12 @@ function addChatMessage(text, sender, isLoading = false) {
         msgDiv.style.borderTopLeftRadius = '2px';
         if (isLoading) msgDiv.id = 'ai-loading-msg'; 
     }
+    
     msgDiv.innerText = text;
     chatHistory.appendChild(msgDiv);
     chatHistory.scrollTop = chatHistory.scrollHeight;
+    
+    return msgDiv;
 }
 
 function removeLoadingMessage() {
