@@ -281,9 +281,9 @@ function renderArchiveCard(docName, db) {
     archiveCharts.forEach(c => c.destroy()); archiveCharts = [];
     const records = db.filter(r => r.docName === docName);
     const card = document.createElement('div');
-    card.style.cssText = "aspect-ratio: 3/4; width: 100%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
+    card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     const L_id = `L_${Date.now()}`; const B_id = `B_${Date.now()}`;
-    card.innerHTML = `<div style="font-size: 13px; font-weight: 600; margin-bottom: 10px;">📄 ${docName}</div><div style="flex:1"><canvas id="${L_id}"></canvas></div><div style="flex:1"><canvas id="${B_id}"></canvas></div>`;
+    card.innerHTML = `<div style="font-size: 16px; font-weight: 600; margin-bottom: 10px;color: #323130;">📄 ${docName}</div><div style="flex:1"><canvas id="${L_id}"></canvas></div><div style="flex:1"><canvas id="${B_id}"></canvas></div>`;
     container.appendChild(card);
     setTimeout(() => {
         const ctxL = document.getElementById(L_id).getContext('2d');
@@ -324,8 +324,8 @@ function renderPromptCard(id) {
     if(!container) return; container.innerHTML = '';
     const p = customPrompts.find(x => x.id === id);
     const card = document.createElement('div');
-    card.style.cssText = "aspect-ratio: 3/4; width: 100%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
-    card.innerHTML = `<input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none;"><textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px;">${p.content}</textarea>`;
+    card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
+    card.innerHTML = `<input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none;font-size: 16px;color: #323130;"><textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px;">${p.content}</textarea>`;
     container.appendChild(card);
 }
 

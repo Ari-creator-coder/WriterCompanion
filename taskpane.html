@@ -42,57 +42,14 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cur
 input[type=range]::-webkit-slider-thumb { height: 12px; width: 12px; border-radius: 50%; background: #a19f9d; cursor: pointer; appearance: none; -webkit-appearance: none; margin-top: -3px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background 0.2s; } 
 input[type=range]::-webkit-slider-thumb:hover { background: #8a8886; } 
 
-/* 新增/修复的 Prompt 卡片设计样式 */
-.prompt-card { 
-    background: #ffffff; 
-    border-radius: 8px; 
-    padding: 16px; 
-    margin-top: 10px;
-    width: 100%; 
-    box-sizing: border-box; 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
-    border: 1px solid #e1dfdd;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-} 
-.prompt-card-title { 
-    font-size: 15px; 
-    font-weight: 600; 
-    color: #323130; 
-    margin-bottom: 4px;
-} 
-.prompt-card-content { 
-    font-size: 13px; 
-    line-height: 1.6; 
-    color: #605e5c; 
-    white-space: pre-wrap; 
-    word-break: break-word;
-} 
-.prompt-card-actions { 
-    display: flex; 
-    justify-content: flex-end; 
-    gap: 12px; 
-    margin-top: 8px;
-    border-top: 1px solid #f3f2f1;
-    padding-top: 8px;
-}
-.prompt-action-btn {
-    font-size: 12px;
-    color: #0078d4;
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 4px 8px;
-}
-.prompt-action-btn:hover { text-decoration: underline; }
+.prompt-card { background: #ffffff; border-radius: 8px; padding: 16px; margin-top: 10px; width: 100%; box-sizing: border-box; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1dfdd; display: flex; flex-direction: column; gap: 10px; } 
+.prompt-card-title { font-size: 15px; font-weight: 600; color: #323130; margin-bottom: 4px; } 
+.prompt-card-content { font-size: 13px; line-height: 1.6; color: #605e5c; white-space: pre-wrap; word-break: break-word; } 
+.prompt-card-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; border-top: 1px solid #f3f2f1; padding-top: 8px; } 
+.prompt-action-btn { font-size: 12px; color: #0078d4; cursor: pointer; background: none; border: none; padding: 4px 8px; } 
+.prompt-action-btn:hover { text-decoration: underline; } 
 
-/* 针对新版 API 输入框的闪烁动画 */ 
-@keyframes flashSuccess { 
-0% { background-color: white; } 
-50% { background-color: #dff6dd; } 
-100% { background-color: white; } 
-} 
+@keyframes flashSuccess { 0% { background-color: white; } 50% { background-color: #dff6dd; } 100% { background-color: white; } } 
 .flash-success { animation: flashSuccess 1s ease; } 
 </style> 
 </head> 
@@ -141,7 +98,7 @@ input[type=range]::-webkit-slider-thumb:hover { background: #8a8886; }
 </div> 
 
 <div style="flex: 1 1 auto; min-height: 250px; display: flex; flex-direction: column; border: 1px solid #e1dfdd; border-radius: 8px; overflow: hidden; background: #faf9f8;"> 
-<div style="padding: 8px 12px; border-bottom: 1px solid #d2d0ce; display: flex; align-items: center; gap: 8px; background: #e1dfdd; border-top-left-radius: 8px; border-top-right-radius: 8px;"> 
+<div id="chat-header" style="padding: 8px 12px; border-bottom: 1px solid #d2d0ce; display: flex; align-items: center; gap: 8px; background: #e1dfdd; border-top-left-radius: 8px; border-top-right-radius: 8px; cursor: pointer;"> 
 <select id="api-provider" class="model-select" title="点击切换模型" style="flex: 0 0 auto;"> 
 <option value="deepseek">DeepSeek</option> 
 <option value="glm">智谱 GLM</option> 
