@@ -306,11 +306,38 @@ function renderArchiveCard(docName, db) {
         <div style="font-size: 16px; font-weight: 600; color: #323130; margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${docName}">📄 ${docName}</div>
         <div style="flex:1; position: relative;"><canvas id="${L_id}"></canvas></div>
         <div style="flex:1; position: relative;"><canvas id="${B_id}"></canvas></div>
-        <div style="text-align: right; margin-top: 5px;">
-            <button onclick="deleteArchive('${docName}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
-        </div>
+        <div style="text-align: right; margin-top: 5px;" id="del-container-${L_id}"></div>
     `;
     container.appendChild(card);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.innerText = '删除';
+    deleteBtn.style.cssText = "background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;";
+    
+    let confirmState = false;
+    deleteBtn.onclick = () => {
+        if (!confirmState) {
+            confirmState = true;
+            deleteBtn.innerText = "确认删除？";
+            deleteBtn.style.color = "#d13438"; 
+            setTimeout(() => { 
+                if (document.body.contains(deleteBtn)) {
+                    confirmState = false; 
+                    deleteBtn.innerText = "删除"; 
+                    deleteBtn.style.color = "#d2d0ce"; 
+                }
+            }, 3000);
+        } else {
+            let dbStore = []; 
+            try { dbStore = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
+            dbStore = dbStore.filter(r => r.docName !== docName);
+            localStorage.setItem('writerCompanionDB', JSON.stringify(dbStore));
+            selectedArchiveDoc = null; 
+            renderArchive();
+        }
+    };
+    document.getElementById(`del-container-${L_id}`).appendChild(deleteBtn);
+
     setTimeout(() => {
         const ctxL = document.getElementById(L_id).getContext('2d');
         archiveCharts.push(new Chart(ctxL, { type: 'line', data: { labels: records.map(r => r.time), datasets: [{ data: records.map(r => r.count), borderColor: '#605e5c' }] }, options: { responsive: true, maintainAspectRatio: false } }));
@@ -319,16 +346,6 @@ function renderArchiveCard(docName, db) {
     }, 0);
 }
 
-// 档案删除逻辑
-window.deleteArchive = function(docName) {
-    if(confirm('确定删除吗？')) {
-        let db = []; try { db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
-        db = db.filter(r => r.docName !== docName);
-        localStorage.setItem('writerCompanionDB', JSON.stringify(db));
-        selectedArchiveDoc = null; 
-        renderArchive();
-    }
-}
 
 // ==================== 提示词管理 ====================
 function initPrompts() {
@@ -397,26 +414,40 @@ function renderPromptCard(id) {
     card.innerHTML = `
         <input id="edit-prompt-title" value="${p.title}" onblur="saveCurrentPromptEdit('${id}')" style="width:100%; border:none; font-weight:600; outline:none; font-size: 16px; color: #323130;">
         <textarea id="edit-prompt-content" onblur="saveCurrentPromptEdit('${id}')" style="flex:1; border:none; resize:none; outline:none; font-size:12px; margin-top:10px; color: #605e5c;">${p.content}</textarea>
-        <div style="text-align: right; margin-top: 5px;">
-            <button onclick="deletePrompt('${id}')" style="background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;" title="删除">删除</button>
-        </div>
+        <div style="text-align: right; margin-top: 5px;" id="prompt-del-${id}"></div>
     `;
     container.appendChild(card);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.innerText = '删除';
+    deleteBtn.style.cssText = "background: transparent; border: none; color: #d2d0ce; cursor: pointer; font-size: 12px; padding: 0;";
+    
+    let confirmState = false;
+    deleteBtn.onclick = () => {
+        if (!confirmState) {
+            confirmState = true;
+            deleteBtn.innerText = "确认删除？";
+            deleteBtn.style.color = "#d13438"; 
+            setTimeout(() => { 
+                if (document.body.contains(deleteBtn)) {
+                    confirmState = false; 
+                    deleteBtn.innerText = "删除"; 
+                    deleteBtn.style.color = "#d2d0ce"; 
+                }
+            }, 3000);
+        } else {
+            customPrompts = customPrompts.filter(p => p.id !== id);
+            if(customPrompts.length === 0) {
+                customPrompts = [{ id: 'p_1', title: '基础润色', content: '你是一个资深的文字编辑。帮我润色文字，直接输出结果。' }];
+            }
+            activePromptId = customPrompts[0].id;
+            savePromptsData();
+            renderPromptList();
+        }
+    };
+    document.getElementById(`prompt-del-${id}`).appendChild(deleteBtn);
 }
 
-// 提示词删除逻辑
-window.deletePrompt = function(id) {
-    if(confirm('确定删除吗？')) {
-        customPrompts = customPrompts.filter(p => p.id !== id);
-        // 如果删光了，给一个默认兜底兜住
-        if(customPrompts.length === 0) {
-            customPrompts = [{ id: 'p_1', title: '基础润色', content: '你是一个资深的文字编辑。帮我润色文字，直接输出结果。' }];
-        }
-        activePromptId = customPrompts[0].id;
-        savePromptsData();
-        renderPromptList();
-    }
-}
 
 function saveCurrentPromptEdit(id) {
     const p = customPrompts.find(x => x.id === id);
