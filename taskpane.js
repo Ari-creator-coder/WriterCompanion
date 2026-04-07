@@ -80,7 +80,7 @@ Office.onReady(async (info) => {
     }
 });
 
-// ==================== ⚡️ 全新：内联 API Key 逻辑（防沙盒拦截版） ====================
+// ==================== ⚡️ 全新：内联 API Key 逻辑 ====================
 
 function getApiKey(provider) {
     if (runtimeKeys[provider]) return runtimeKeys[provider];
@@ -94,11 +94,11 @@ function getApiKey(provider) {
 }
 
 function setApiKey(provider, key) {
-    runtimeKeys[provider] = key; // 内存兜底
+    runtimeKeys[provider] = key; 
     try {
         localStorage.setItem(provider === 'deepseek' ? 'writer_ds_key' : 'writer_glm_key', key);
     } catch(e) {
-        console.warn("localStorage 被禁用，密钥已保存在当前会话内存中。");
+        console.warn("localStorage 被禁用，密钥已保存在会话内存中。");
     }
 }
 
@@ -108,17 +108,14 @@ function setupInlineApiKeyUI() {
     const container = document.getElementById("inline-api-container");
     const checkIcon = document.getElementById("api-save-check");
 
-    if(!providerSelect || !keyInput) return; // 安全检查
+    if(!providerSelect || !keyInput) return;
 
-    // 1. 初始化时读取
     updateInputDisplay();
 
-    // 2. 切换时更新
     providerSelect.addEventListener("change", () => {
         updateInputDisplay();
     });
 
-    // 3. 监听回车保存
     keyInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.keyCode === 13) {
             e.preventDefault();
@@ -126,25 +123,22 @@ function setupInlineApiKeyUI() {
             const newKey = keyInput.value.trim();
 
             if(!newKey) {
-                addChatMessage("⚠️ 密钥不能为空，请重新输入。", "ai");
+                addChatMessage("⚠️ 密钥不能为空。", "ai");
                 return;
             }
             
-            // 保存逻辑
             setApiKey(currentProvider, newKey);
 
-            // 绿色闪烁动画
             container.classList.remove("flash-success");
-            void container.offsetWidth; // 触发重绘
+            void container.offsetWidth; 
             container.classList.add("flash-success");
             checkIcon.style.display = "inline";
             setTimeout(() => { checkIcon.style.display = "none"; }, 2000);
             
-            keyInput.blur(); // 收起键盘
+            keyInput.blur(); 
             
-            // 💡 视觉确认：在聊天框明确通知用户保存成功！
             const modelName = currentProvider === 'deepseek' ? 'DeepSeek' : '智谱 GLM';
-            addChatMessage(`✅ ${modelName} 密钥已保存至当前会话！请在下方输入文字开始创作。`, 'ai');
+            addChatMessage(`✅ ${modelName} 密钥保存成功！`, 'ai');
             
             const chatInput = document.getElementById("ai-input");
             if(chatInput) chatInput.focus();
@@ -240,7 +234,7 @@ function saveRecord(count, duration, docName) {
         const db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]');
         db.push({ docName, date: dateStr, time: timeStr, duration, count, timestamp: now.getTime() });
         localStorage.setItem('writerCompanionDB', JSON.stringify(db));
-    } catch(e) {} // 忽略存储错误
+    } catch(e) {}
 }
 
 function renderTable() {
@@ -297,16 +291,12 @@ function renderArchive() {
     renderArchiveCard(selectedArchiveDoc, db);
 }
 
-let deleteArchiveConfirmTimer = null;
 function deleteDocRecords(docName) {
     const btn = document.getElementById('del-btn-archive');
     if (btn && btn.innerText === '删除') {
         btn.innerText = '确认删除？';
         btn.style.color = '#a4262c'; 
-        clearTimeout(deleteArchiveConfirmTimer);
-        deleteArchiveConfirmTimer = setTimeout(() => {
-            if (btn) { btn.innerText = '删除'; btn.style.color = '#a19f9d'; }
-        }, 3000);
+        setTimeout(() => { if (btn) { btn.innerText = '删除'; btn.style.color = '#a19f9d'; } }, 3000);
         return;
     }
     try {
@@ -351,23 +341,18 @@ function renderArchiveCard(docName, db) {
     }, 0);
 }
 
-// ==================== 🚀 Prompt 核心逻辑 ====================
+// ==================== Prompt 核心逻辑 ====================
 
 function initPrompts() {
     const defaultPrompts = [
         { id: 'p_default_1', title: '基础润色', content: '你是一个资深的文字编辑和排版专家。请帮我润色和优化发给你的文字，使其表达更流畅、专业。直接输出润色后的结果，不要加上废话。' }
     ];
-    
     try {
         customPrompts = JSON.parse(localStorage.getItem('writerPrompts')) || defaultPrompts;
         activePromptId = localStorage.getItem('writerActivePrompt');
-    } catch(e) {
-        customPrompts = defaultPrompts;
-    }
-    
+    } catch(e) { customPrompts = defaultPrompts; }
     if (customPrompts.length === 0) customPrompts = defaultPrompts; 
     if (!activePromptId || !customPrompts.find(p => p.id === activePromptId)) activePromptId = customPrompts[0].id;
-    
     updatePromptCapsule();
 }
 
@@ -389,21 +374,14 @@ function renderPromptList() {
     const listContainer = document.getElementById('prompt-list');
     if(!listContainer) return;
     listContainer.innerHTML = '';
-    
     let displayPrompts = showAllPrompts ? customPrompts : customPrompts.slice(0, 5);
-    
     displayPrompts.forEach(p => {
         const item = document.createElement('div');
         item.className = `doc-list-item ${p.id === activePromptId ? 'active' : ''}`;
         item.innerText = p.title;
-        item.onclick = () => {
-            activePromptId = p.id;
-            savePromptsData();
-            renderPromptList(); 
-        };
+        item.onclick = () => { activePromptId = p.id; savePromptsData(); renderPromptList(); };
         listContainer.appendChild(item);
     });
-
     if (!showAllPrompts && customPrompts.length > 5) {
         const moreBtn = document.createElement('div');
         moreBtn.className = 'doc-list-item';
@@ -420,34 +398,20 @@ function renderPromptCard(id) {
     container.innerHTML = '';
     const p = customPrompts.find(p => p.id === id);
     if (!p) return;
-
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 100%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; box-shadow: 0 2px 5px rgba(0,0,0,0.05); position: relative;";
-
-    card.innerHTML = `
-        <div style="margin-bottom: 10px;">
-            <input type="text" id="edit-prompt-title" value="${p.title}" placeholder="提示词标题" onblur="saveCurrentPromptEdit('${id}')" style="width: 100%; border: none; background: transparent; font-size: 13px; color: #605e5c; font-weight: 600; outline: none; padding: 0; font-family: inherit;">
-        </div>
-        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
-            <textarea id="edit-prompt-content" placeholder="输入你想给 AI 的系统级设定..." onblur="saveCurrentPromptEdit('${id}')" style="flex: 1; border: none; background: transparent; color: #8a8886; font-size: 12px; resize: none; outline: none; line-height: 1.6; font-family: inherit; padding: 0;">${p.content}</textarea>
-        </div>
-        <div style="text-align: right; margin-top: 10px;">
-            <button id="del-btn-prompt" onclick="deletePrompt('${id}')" style="background: transparent; border: none; color: #a19f9d; font-size: 10px; cursor: pointer; text-decoration: underline; padding: 0; transition: color 0.3s;">删除</button>
-        </div>
-    `;
+    card.innerHTML = `<div style="margin-bottom: 10px;"><input type="text" id="edit-prompt-title" value="${p.title}" placeholder="提示词标题" onblur="saveCurrentPromptEdit('${id}')" style="width: 100%; border: none; background: transparent; font-size: 13px; color: #605e5c; font-weight: 600; outline: none; padding: 0;"></div><div style="flex: 1; min-height: 0; display: flex; flex-direction: column;"><textarea id="edit-prompt-content" placeholder="输入系统设定..." onblur="saveCurrentPromptEdit('${id}')" style="flex: 1; border: none; background: transparent; color: #8a8886; font-size: 12px; resize: none; outline: none; line-height: 1.6; padding: 0;">${p.content}</textarea></div><div style="text-align: right; margin-top: 10px;"><button id="del-btn-prompt" onclick="deletePrompt('${id}')" style="background: transparent; border: none; color: #a19f9d; font-size: 10px; cursor: pointer; text-decoration: underline; padding: 0;">删除</button></div>`;
     container.appendChild(card);
 }
 
 function saveCurrentPromptEdit(id) {
     const p = customPrompts.find(x => x.id === id);
     if (p) {
-        const newTitle = document.getElementById('edit-prompt-title').value.trim() || '未命名提示词';
-        const newContent = document.getElementById('edit-prompt-content').value.trim();
-        p.title = newTitle;
-        p.content = newContent;
+        p.title = document.getElementById('edit-prompt-title').value.trim() || '未命名提示词';
+        p.content = document.getElementById('edit-prompt-content').value.trim();
         savePromptsData();
         const activeItem = document.querySelector('#prompt-list .active');
-        if(activeItem) activeItem.innerText = newTitle;
+        if(activeItem) activeItem.innerText = p.title;
     }
 }
 
@@ -459,18 +423,13 @@ function addNewPrompt() {
     renderPromptList();
 }
 
-let deletePromptConfirmTimer = null;
 function deletePrompt(id) {
     const btn = document.getElementById('del-btn-prompt');
-    if (customPrompts.length <= 1) {
-        if (btn) { btn.innerText = '须至少保留一个'; setTimeout(() => { if (btn) btn.innerText = '删除'; }, 2000); }
-        return;
-    }
+    if (customPrompts.length <= 1) { return; }
     if (btn && btn.innerText === '删除') {
         btn.innerText = '确认删除？';
         btn.style.color = '#a4262c'; 
-        clearTimeout(deletePromptConfirmTimer);
-        deletePromptConfirmTimer = setTimeout(() => { if (btn) { btn.innerText = '删除'; btn.style.color = '#a19f9d'; } }, 3000);
+        setTimeout(() => { if (btn) { btn.innerText = '删除'; btn.style.color = '#a19f9d'; } }, 3000);
         return;
     }
     customPrompts = customPrompts.filter(p => p.id !== id);
@@ -496,7 +455,7 @@ function playAudio(type, el) {
     document.getElementById("stop-audio-btn").style.display = "inline-flex";
 }
 
-// ==================== 🔒 进化：AI 接口与流式输出 ====================
+// ==================== 🔒 修正版：AI 接口与流式输出 (支持 GLM-5) ====================
 
 async function handleAiChat() {
     const inputEl = document.getElementById("ai-input");
@@ -510,11 +469,9 @@ async function handleAiChat() {
     const thinkToggle = document.getElementById('deep-think-toggle');
     const isDeepThink = thinkToggle ? thinkToggle.checked : false;
 
-    // 💡 从强化的 getApiKey 获取密钥（即便跨域隔离也能读到内存）
     const apiKey = getApiKey(provider);
-    
     if (!apiKey) {
-        addChatMessage(`⚠️ 未检测到 ${provider === 'deepseek' ? 'DeepSeek' : '智谱 GLM'} 密钥。请在顶部文本框输入您的 sk- 开头的密钥，然后【按下回车键】保存。`, 'ai');
+        addChatMessage(`⚠️ 未检测到 ${provider === 'deepseek' ? 'DeepSeek' : '智谱 GLM'} 密钥。`, 'ai');
         return;
     }
 
@@ -522,14 +479,12 @@ async function handleAiChat() {
     inputEl.value = ''; 
     inputEl.style.height = '20px';
     
-    const loadingText = "连接中...";
-    addChatMessage(loadingText, 'ai', true);
+    addChatMessage("连接中...", 'ai', true);
     
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
     const systemPromptContent = activeP.content || "你是一个资深的文字编辑...";
 
     let apiUrl = '';
-    
     let requestBody = {
         messages: [
             { role: "system", content: systemPromptContent }, 
@@ -538,12 +493,16 @@ async function handleAiChat() {
         stream: true 
     };
 
+    // --- 修改点：适配 GLM-5 推理参数 ---
     if (provider === 'deepseek') {
         apiUrl = 'https://api.deepseek.com/chat/completions';
         requestBody.model = isDeepThink ? 'deepseek-reasoner' : 'deepseek-chat';
     } else {
         apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-        requestBody.model = 'glm-4'; 
+        requestBody.model = 'glm-5'; 
+        if (isDeepThink) {
+            requestBody.thinking = { type: "enabled" }; // 开启推理模式
+        }
     }
 
     try {
@@ -557,9 +516,8 @@ async function handleAiChat() {
         });
 
         if (!response.ok) {
-            // 如果接口返回错误，把具体的错误码打印出来方便排查
             const errBody = await response.text();
-            throw new Error(`HTTP ${response.status} - 接口拒绝连接。请检查密钥是否正确、是否欠费，或者网络是否被拦截。\n详情: ${errBody}`);
+            throw new Error(`HTTP ${response.status} - 接口拒绝连接。\n详情: ${errBody}`);
         }
         
         removeLoadingMessage();
@@ -577,7 +535,6 @@ async function handleAiChat() {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            
             buffer = lines.pop(); 
 
             for (const line of lines) {
@@ -590,6 +547,8 @@ async function handleAiChat() {
                         const data = JSON.parse(dataStr);
                         const delta = data.choices[0].delta;
                         
+                        // --- 修改点：静默处理推理过程，只流式显示 content ---
+                        // 我们忽略 delta.reasoning_content 字段，AI 在思考时页面会保持静止
                         if (delta && delta.content) {
                             fullContent += delta.content;
                             streamMsgDiv.innerText = fullContent;
@@ -597,9 +556,7 @@ async function handleAiChat() {
                             const chatHistory = document.getElementById("chat-history");
                             chatHistory.scrollTop = chatHistory.scrollHeight;
                         }
-                    } catch (e) {
-                        // 忽略单个分片解析错误
-                    }
+                    } catch (e) {}
                 }
             }
         }
