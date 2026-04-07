@@ -170,20 +170,33 @@ function switchTab(tabName) {
     if (tabName === 'prompt') renderPromptList();
 }
 
-// ==================== 计时与历史 (省略重复的辅助逻辑，功能完整保留) ====================
+// ==================== 计时与历史 (已修复后台运行变慢问题) ====================
 function startTimer() {
     isRunning = true;
     const minutes = document.getElementById("time-slider").value;
     timeLeft = timeLeft || minutes * 60;
+
+    // 【核心修复】：记录一个绝对的“结束时刻”
+    const expectedEndTime = Date.now() + (timeLeft * 1000);
+
     document.getElementById("controls-wrapper").style.display = "none";
     document.getElementById("give-up-btn").style.display = "inline-block";
     const displayElement = document.getElementById("time-display");
     displayElement.style.transform = "scale(1)"; 
     displayElement.style.color = "#c8c6c4"; 
+    
+    if (timer) clearInterval(timer);
     timer = setInterval(() => {
-        timeLeft--;
+        // 【核心修复】：通过当前时刻与结束时刻的差值来计算剩余秒数
+        // 这样即使 setInterval 被浏览器延迟触发，timeLeft 依然是准的
+        const now = Date.now();
+        timeLeft = Math.max(0, Math.ceil((expectedEndTime - now) / 1000));
+        
         updateDisplay();
-        if (timeLeft <= 0) completeSession();
+        
+        if (timeLeft <= 0) {
+            completeSession();
+        }
     }, 1000);
 }
 
