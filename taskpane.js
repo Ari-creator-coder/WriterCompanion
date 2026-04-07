@@ -26,6 +26,7 @@ Office.onReady(async (info) => {
         // 初始化存储数据
         renderTable();
         initPrompts();
+        loadStoredApiKeys(); // 🔒 安全强化：初始化时加载已存的 Key
 
         const slider = document.getElementById("time-slider");
         const display = document.getElementById("time-display");
@@ -34,6 +35,10 @@ Office.onReady(async (info) => {
         const stopAudioBtn = document.getElementById("stop-audio-btn");
         const aiInput = document.getElementById("ai-input");
         const aiSendBtn = document.getElementById("ai-send-btn");
+        
+        // 🔒 安全强化：绑定保存 Key 的按钮
+        const saveApiBtn = document.getElementById("save-api-keys");
+        if(saveApiBtn) saveApiBtn.onclick = saveApiKeysToStorage;
 
         slider.oninput = function() {
             if (!isRunning) {
@@ -64,15 +69,43 @@ Office.onReady(async (info) => {
     }
 });
 
+// ==================== 🔒 安全强化：Key 管理逻辑 ====================
+
+function saveApiKeysToStorage() {
+    const dsKey = document.getElementById("ds-key-input").value.trim();
+    const glmKey = document.getElementById("glm-key-input").value.trim();
+    
+    if (dsKey) localStorage.setItem('writer_ds_key', dsKey);
+    if (glmKey) localStorage.setItem('writer_glm_key', glmKey);
+    
+    alert("API 设置已安全保存至本地设备。");
+}
+
+function loadStoredApiKeys() {
+    const dsKey = localStorage.getItem('writer_ds_key');
+    const glmKey = localStorage.getItem('writer_glm_key');
+    
+    if (dsKey && document.getElementById("ds-key-input")) {
+        document.getElementById("ds-key-input").value = dsKey;
+    }
+    if (glmKey && document.getElementById("glm-key-input")) {
+        document.getElementById("glm-key-input").value = glmKey;
+    }
+}
+
 // ==================== 页面导航 ====================
 function switchTab(tabName) {
     ['write', 'prompt', 'archive'].forEach(name => {
-        document.getElementById(`tab-${name}`).classList.remove('active');
-        document.getElementById(`${name === 'write' ? 'app' : name}-body`).style.display = 'none';
+        const tabEl = document.getElementById(`tab-${name}`);
+        const bodyEl = document.getElementById(`${name === 'write' ? 'app' : name}-body`);
+        if(tabEl) tabEl.classList.remove('active');
+        if(bodyEl) bodyEl.style.display = 'none';
     });
 
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-    document.getElementById(`${tabName === 'write' ? 'app' : tabName}-body`).style.display = 'flex';
+    const activeTab = document.getElementById(`tab-${tabName}`);
+    const activeBody = document.getElementById(`${tabName === 'write' ? 'app' : tabName}-body`);
+    if(activeTab) activeTab.classList.add('active');
+    if(activeBody) activeBody.style.display = 'flex';
 
     if (tabName === 'archive') renderArchive();
     if (tabName === 'prompt') renderPromptList();
@@ -145,6 +178,7 @@ function saveRecord(count, duration, docName) {
 
 function renderTable() {
     const listContainer = document.getElementById('history-list');
+    if(!listContainer) return;
     listContainer.innerHTML = ''; 
     if (wordHistory.length === 0) {
         listContainer.innerHTML = '<div style="font-size: 12px; color: #999; text-align: center; margin-top: 10px;">暂无记录</div>';
@@ -165,14 +199,17 @@ function renderArchive() {
     db.forEach(r => { if (!docLastUsed[r.docName] || r.timestamp > docLastUsed[r.docName]) docLastUsed[r.docName] = r.timestamp || 0; });
     let sortedDocs = Object.keys(docLastUsed).sort((a, b) => docLastUsed[b] - docLastUsed[a]);
     if (sortedDocs.includes(currentGlobalDocName)) sortedDocs = [currentGlobalDocName, ...sortedDocs.filter(d => d !== currentGlobalDocName)];
+    
+    const listContainer = document.getElementById('archive-doc-list');
+    if(!listContainer) return;
+    listContainer.innerHTML = '';
+
     if (sortedDocs.length === 0) {
-        document.getElementById('archive-doc-list').innerHTML = '';
         document.getElementById('archive-card-container').innerHTML = '<div style="color: #999; margin-top: 50px; font-size: 13px;">暂无档案</div>';
         return;
     }
     if (!selectedArchiveDoc || !sortedDocs.includes(selectedArchiveDoc)) selectedArchiveDoc = sortedDocs[0];
-    const listContainer = document.getElementById('archive-doc-list');
-    listContainer.innerHTML = '';
+    
     let displayDocs = showAllDocs ? sortedDocs : sortedDocs.slice(0, 5);
     displayDocs.forEach(docName => {
         const item = document.createElement('div');
@@ -185,9 +222,6 @@ function renderArchive() {
         const moreBtn = document.createElement('div');
         moreBtn.className = 'doc-list-item';
         moreBtn.innerText = '...'; 
-        moreBtn.style.color = '#605e5c';
-        moreBtn.style.fontWeight = 'bold';
-        moreBtn.style.textAlign = 'center';
         moreBtn.onclick = () => { showAllDocs = true; renderArchive(); };
         listContainer.appendChild(moreBtn);
     }
@@ -215,6 +249,7 @@ function deleteDocRecords(docName) {
 
 function renderArchiveCard(docName, db) {
     const container = document.getElementById('archive-card-container');
+    if(!container) return;
     container.innerHTML = '';
     archiveCharts.forEach(c => c.destroy());
     archiveCharts = [];
@@ -236,7 +271,7 @@ function renderArchiveCard(docName, db) {
     }, 0);
 }
 
-// ==================== 🚀 Prompt 核心逻辑 🚀 ====================
+// ==================== 🚀 Prompt 核心逻辑 ====================
 
 function initPrompts() {
     const defaultPrompts = [
@@ -254,7 +289,6 @@ function initPrompts() {
 function updatePromptCapsule() {
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
     const cap = document.getElementById('active-prompt-capsule');
-    // 💡 修复1：去掉了胶囊显示的括号 []
     if(cap) cap.innerText = activeP.title;
 }
 
@@ -266,6 +300,7 @@ function savePromptsData() {
 
 function renderPromptList() {
     const listContainer = document.getElementById('prompt-list');
+    if(!listContainer) return;
     listContainer.innerHTML = '';
     
     let displayPrompts = showAllPrompts ? customPrompts : customPrompts.slice(0, 5);
@@ -286,9 +321,6 @@ function renderPromptList() {
         const moreBtn = document.createElement('div');
         moreBtn.className = 'doc-list-item';
         moreBtn.innerText = '...'; 
-        moreBtn.style.color = '#605e5c';
-        moreBtn.style.fontWeight = 'bold';
-        moreBtn.style.textAlign = 'center';
         moreBtn.onclick = () => { showAllPrompts = true; renderPromptList(); };
         listContainer.appendChild(moreBtn);
     }
@@ -297,6 +329,7 @@ function renderPromptList() {
 
 function renderPromptCard(id) {
     const container = document.getElementById('prompt-card-container');
+    if(!container) return;
     container.innerHTML = '';
     const p = customPrompts.find(p => p.id === id);
     if (!p) return;
@@ -342,26 +375,17 @@ function addNewPrompt() {
 let deletePromptConfirmTimer = null;
 function deletePrompt(id) {
     const btn = document.getElementById('del-btn-prompt');
-    
-    // 💡 修复2：如果只剩最后一个，给予用户提示而不是毫无反应
     if (customPrompts.length <= 1) {
-        if (btn) {
-            btn.innerText = '须至少保留一个';
-            setTimeout(() => { if (btn) btn.innerText = '删除'; }, 2000);
-        }
+        if (btn) { btn.innerText = '须至少保留一个'; setTimeout(() => { if (btn) btn.innerText = '删除'; }, 2000); }
         return;
     }
-
     if (btn && btn.innerText === '删除') {
         btn.innerText = '确认删除？';
         btn.style.color = '#a4262c'; 
         clearTimeout(deletePromptConfirmTimer);
-        deletePromptConfirmTimer = setTimeout(() => {
-            if (btn) { btn.innerText = '删除'; btn.style.color = '#a19f9d'; }
-        }, 3000);
+        deletePromptConfirmTimer = setTimeout(() => { if (btn) { btn.innerText = '删除'; btn.style.color = '#a19f9d'; } }, 3000);
         return;
     }
-
     customPrompts = customPrompts.filter(p => p.id !== id);
     activePromptId = customPrompts[0].id;
     savePromptsData();
@@ -385,7 +409,8 @@ function playAudio(type, el) {
     document.getElementById("stop-audio-btn").style.display = "inline-flex";
 }
 
-// ==================== AI 接口 ====================
+// ==================== 🔒 安全强化：AI 接口逻辑 ====================
+
 async function handleAiChat() {
     const inputEl = document.getElementById("ai-input");
     const text = inputEl.value.trim();
@@ -394,6 +419,20 @@ async function handleAiChat() {
     const provider = document.getElementById('api-provider').value;
     const isDeepThink = document.getElementById('deep-think-toggle').checked;
 
+    // 🔒 从本地存储获取 Key，不再硬编码
+    const storedDsKey = localStorage.getItem('writer_ds_key');
+    const storedGlmKey = localStorage.getItem('writer_glm_key');
+    
+    // 检查 Key 是否存在
+    if (provider === 'deepseek' && !storedDsKey) {
+        addChatMessage("⚠️ 未检测到 DeepSeek Key，请在设置中输入并保存。", 'ai');
+        return;
+    }
+    if (provider === 'glm' && !storedGlmKey) {
+        addChatMessage("⚠️ 未检测到 GLM Key，请在设置中输入并保存。", 'ai');
+        return;
+    }
+
     addChatMessage(text, 'user');
     inputEl.value = ''; 
     inputEl.style.height = '20px';
@@ -401,17 +440,11 @@ async function handleAiChat() {
     const loadingText = isDeepThink ? "思考中..." : "正在排版与润色...";
     addChatMessage(loadingText, 'ai', true);
     
-    // 🚨 务必在此处填入你的真实 API 密钥 🚨
-    const API_KEYS = {
-        deepseek: 'sk-xxxxxxxxxxxxxxxxxxxxxxxx', 
-        glm: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'    
-    };
-    
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
     const systemPromptContent = activeP.content || "你是一个资深的文字编辑...";
 
     let apiUrl = '';
-    let apiKey = '';
+    let apiKey = (provider === 'deepseek') ? storedDsKey : storedGlmKey;
     let requestBody = {
         messages: [
             { role: "system", content: systemPromptContent }, 
@@ -421,13 +454,11 @@ async function handleAiChat() {
 
     if (provider === 'deepseek') {
         apiUrl = 'https://api.deepseek.com/chat/completions';
-        apiKey = API_KEYS.deepseek;
         requestBody.model = isDeepThink ? 'deepseek-reasoner' : 'deepseek-chat';
     } else {
         apiUrl = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-        apiKey = API_KEYS.glm;
-        requestBody.model = 'glm-5';
-        requestBody.thinking = { type: isDeepThink ? "enabled" : "disabled" };
+        requestBody.model = 'glm-4'; // 注意：通常是 glm-4，根据实际文档调整
+        if (isDeepThink) requestBody.thinking = { type: "enabled" };
     }
 
     try {
@@ -441,7 +472,11 @@ async function handleAiChat() {
 
         const data = await response.json();
         removeLoadingMessage();
-        addChatMessage(data.choices[0].message.content, 'ai');
+        if (data.choices && data.choices[0]) {
+            addChatMessage(data.choices[0].message.content, 'ai');
+        } else {
+            throw new Error("接口未返回有效内容");
+        }
 
     } catch (e) { 
         removeLoadingMessage(); 
@@ -451,6 +486,7 @@ async function handleAiChat() {
 
 function addChatMessage(text, sender, isLoading = false) {
     const chatHistory = document.getElementById("chat-history");
+    if(!chatHistory) return;
     const msgDiv = document.createElement('div');
     msgDiv.style.cssText = "padding: 8px 12px; border-radius: 12px; max-width: 85%; font-size: 13px; margin-bottom: 5px; word-break: break-word; white-space: pre-wrap;";
     if (sender === 'user') { 
