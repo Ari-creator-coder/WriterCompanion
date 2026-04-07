@@ -1,143 +1,203 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Writer Companion Add-in</title>
+<!DOCTYPE html> 
+<html> 
+<head> 
+<meta charset="UTF-8" /> 
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" /> 
+<meta name="viewport" content="width=device-width, initial-scale=1"> 
+<title>Writer Companion Add-in</title> 
 
-    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-    <link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/>
-    <link href="taskpane.css" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script> 
+<link rel="stylesheet" href="https://res-1.cdn.office.net/files/fabric-cdn-prod_20230815.002/office-ui-fabric-core/11.1.0/css/fabric.min.css"/> 
+<link href="taskpane.css" rel="stylesheet" type="text/css" /> 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
 
-    <style> 
-        .nav-tab { padding: 10px 15px; font-size: 14px; color: #8a8886; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
-        .nav-tab.active { color: #605e5c; font-weight: 600; border-bottom: 2px solid #605e5c; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #c8c6c4; border-radius: 4px; }
-        
-        .doc-list-item { padding: 8px 12px; font-size: 13px; color: #605e5c; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background-color 0.1s; width: 100%; box-sizing: border-box; }
-        .doc-list-item:hover { background-color: #e1dfdd; }
-        .doc-list-item.active { background-color: #c8c6c4; font-weight: 600; color: #484644; }
-        
-        .model-select {
-            appearance: none; -webkit-appearance: none; 
-            border: none; background: transparent; padding: 0;
-            font-size: 13px; font-weight: 600; color: #605e5c;
-            cursor: pointer; transition: opacity 0.2s; outline: none;
-        }
-        .model-select:hover { opacity: 0.6; }
+<style> 
+.nav-tab { padding: 10px 15px; font-size: 14px; color: #8a8886; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; } 
+.nav-tab.active { color: #605e5c; font-weight: 600; border-bottom: 2px solid #605e5c; } 
+::-webkit-scrollbar { width: 4px; } 
+::-webkit-scrollbar-thumb { background: #c8c6c4; border-radius: 4px; } 
+.doc-list-item { padding: 8px 12px; font-size: 13px; color: #605e5c; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background-color 0.1s; width: 100%; box-sizing: border-box; } 
+.doc-list-item:hover { background-color: #e1dfdd; } 
+.doc-list-item.active { background-color: #c8c6c4; font-weight: 600; color: #484644; } 
+.model-select { 
+appearance: none; -webkit-appearance: none; 
+border: none; background: transparent; padding: 0; 
+font-size: 13px; font-weight: 600; color: #605e5c; 
+cursor: pointer; transition: opacity 0.2s; outline: none; 
+} 
+.model-select:hover { opacity: 0.6; } 
 
-        .think-toggle-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-        .switch { position: relative; display: inline-block; width: 28px; height: 16px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e0e0e0; transition: .3s; border-radius: 16px; }
-        .slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
-        input:checked + .slider { background-color: #605e5c; } 
-        input:checked + .slider:before { transform: translateX(12px); }
-        
-        .audio-toggle svg { width: 20px; height: 20px; display: block; }
+.think-toggle-wrapper { display: flex; align-items: center; gap: 6px; cursor: pointer; } 
+.switch { position: relative; display: inline-block; width: 28px; height: 16px; } 
+.switch input { opacity: 0; width: 0; height: 0; } 
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #e0e0e0; transition: .3s; border-radius: 16px; } 
+.slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,0.2); } 
+input:checked + .slider { background-color: #605e5c; } 
+input:checked + .slider:before { transform: translateX(12px); } 
+.audio-toggle svg { width: 20px; height: 20px; display: block; } 
 
-        input[type=range] { appearance: none; -webkit-appearance: none; width: 100%; background: transparent; }
-        input[type=range]:focus { outline: none; }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #e1dfdd; border-radius: 3px; }
-        input[type=range]::-webkit-slider-thumb { height: 12px; width: 12px; border-radius: 50%; background: #a19f9d; cursor: pointer; appearance: none; -webkit-appearance: none; margin-top: -3px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background 0.2s; }
-        input[type=range]::-webkit-slider-thumb:hover { background: #8a8886; }
-        
-        @keyframes flashSuccess {
-            0% { background-color: white; }
-            50% { background-color: #dff6dd; }
-            100% { background-color: white; }
-        }
-        .flash-success { animation: flashSuccess 1s ease; }
-    </style>
-</head>
+input[type=range] { appearance: none; -webkit-appearance: none; width: 100%; background: transparent; } 
+input[type=range]:focus { outline: none; } 
+input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #e1dfdd; border-radius: 3px; } 
+input[type=range]::-webkit-slider-thumb { height: 12px; width: 12px; border-radius: 50%; background: #a19f9d; cursor: pointer; appearance: none; -webkit-appearance: none; margin-top: -3px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: background 0.2s; } 
+input[type=range]::-webkit-slider-thumb:hover { background: #8a8886; } 
 
-<body class="ms-font-m ms-welcome ms-Fabric" style="margin: 0; padding: 0; background-color: #edebe9; height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
-    
-    <div style="flex: 0 0 auto; display: flex; background: #edebe9; border-bottom: 1px solid #e1dfdd; padding: 0 15px;">
-        <div id="tab-write" class="nav-tab active" onclick="switchTab('write')">Writing</div>
-        <div id="tab-prompt" class="nav-tab" onclick="switchTab('prompt')">Prompt</div>
-        <div id="tab-archive" class="nav-tab" onclick="switchTab('archive')">Archive</div>
-    </div>
+/* 新增/修复的 Prompt 卡片设计样式 */
+.prompt-card { 
+    background: #ffffff; 
+    border-radius: 8px; 
+    padding: 16px; 
+    margin-top: 10px;
+    width: 100%; 
+    box-sizing: border-box; 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
+    border: 1px solid #e1dfdd;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+} 
+.prompt-card-title { 
+    font-size: 15px; 
+    font-weight: 600; 
+    color: #323130; 
+    margin-bottom: 4px;
+} 
+.prompt-card-content { 
+    font-size: 13px; 
+    line-height: 1.6; 
+    color: #605e5c; 
+    white-space: pre-wrap; 
+    word-break: break-word;
+} 
+.prompt-card-actions { 
+    display: flex; 
+    justify-content: flex-end; 
+    gap: 12px; 
+    margin-top: 8px;
+    border-top: 1px solid #f3f2f1;
+    padding-top: 8px;
+}
+.prompt-action-btn {
+    font-size: 12px;
+    color: #0078d4;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+}
+.prompt-action-btn:hover { text-decoration: underline; }
 
-    <main id="app-body" style="padding: 15px; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; flex: 1; overflow-y: auto; overflow-x: hidden; gap: 15px;">
-        
-        <div style="flex: 0 0 auto; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; color: #605e5c; background: transparent;">
-            <div class="audio-toggle" data-type="rainy" style="cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg></div>
-            <div class="audio-toggle" data-type="sun" style="cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></div>
-            <div class="audio-toggle" data-type="coffee" style="cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg></div>
-            <div class="audio-toggle" data-type="river" style="cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg></div>
-            <div class="audio-toggle" data-type="ocean" style="cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg></div>
-            <div class="audio-toggle" data-type="fire" style="cursor: pointer;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg></div>
-            <button id="stop-audio-btn" style="display: none; background: transparent; border: none; cursor: pointer;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/></svg></button>
-        </div>
+/* 针对新版 API 输入框的闪烁动画 */ 
+@keyframes flashSuccess { 
+0% { background-color: white; } 
+50% { background-color: #dff6dd; } 
+100% { background-color: white; } 
+} 
+.flash-success { animation: flashSuccess 1s ease; } 
+</style> 
+</head> 
 
-        <div style="flex: 0 0 auto; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; position: relative;">
-            <h1 id="time-display" style="font-size: 80px; color: #605e5c; margin: 0; transform: scale(0.6); line-height: 1;">25:00</h1>
-            <div id="controls-wrapper" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: -10px;">
-                <div style="margin: 0 0 10px 0; width: 80%; text-align: center;">
-                    <input type="range" id="time-slider" min="20" max="120" step="5" value="25">
-                </div>
-                <button id="start-btn" style="background-color: #e1dfdd; color: #605e5c; font-weight: 600; border: none; padding: 6px 30px; border-radius: 15px; cursor: pointer;">Start</button>
-            </div>
-            <button id="give-up-btn" style="display: none; background: transparent; color: #999; border: none; cursor: pointer; text-decoration: underline;">Give up</button>
-        </div>
+<body class="ms-font-m ms-welcome ms-Fabric" style="margin: 0; padding: 0; background-color: #edebe9; height: 100vh; display: flex; flex-direction: column; overflow: hidden;"> 
+<div style="flex: 0 0 auto; display: flex; background: #edebe9; border-bottom: 1px solid #e1dfdd; padding: 0 15px;"> 
+<div id="tab-write" class="nav-tab active" onclick="switchTab('write')">Writing</div> 
+<div id="tab-prompt" class="nav-tab" onclick="switchTab('prompt')">Prompt</div> 
+<div id="tab-archive" class="nav-tab" onclick="switchTab('archive')">Archive</div> 
+</div> 
 
-        <div style="flex: 1 1 auto; min-height: 250px; display: flex; flex-direction: column; border: 1px solid #e1dfdd; border-radius: 8px; overflow: hidden; background: #faf9f8;">
-            
-            <div id="chat-header" style="padding: 8px 12px; border-bottom: 1px solid #d2d0ce; display: flex; align-items: center; gap: 8px; background: #e1dfdd; cursor: pointer;">
-                <select id="api-provider" class="model-select" style="flex: 0 0 auto;">
-                    <option value="deepseek">DeepSeek</option>
-                    <option value="glm">智谱 GLM</option>
-                </select>
-                <div id="inline-api-container" style="display: none; flex: 1; align-items: center; background: white; border-radius: 4px; padding: 2px 8px; border: 1px solid #c8c6c4; position: relative;">
-                    <input type="password" id="inline-api-key" placeholder="输入 Key，回车保存" style="width: 100%; border: none; outline: none; background: transparent; font-size: 12px; color: #605e5c;">
-                    <span id="api-save-check" style="display: none; color: #107c10; font-size: 12px; position: absolute; right: 8px;">✓</span>
-                </div>
-            </div>
-            
-            <div id="chat-history" style="flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
-                <div style="align-self: flex-start; background: #edebe9; padding: 8px 12px; border-radius: 12px; max-width: 85%; color: #605e5c;">你好！和我一起创作吧！</div>
-            </div>
-            
-            <div style="background: white; border-top: 1px solid #e1dfdd; display: flex; flex-direction: column;">
-                <div style="padding: 8px 12px 4px 12px; display: flex; align-items: center; justify-content: space-between;">
-                    <label class="think-toggle-wrapper">
-                        <span style="font-size: 12px; color: #8a8886;">✨ 深度思考</span> 
-                        <div class="switch">
-                            <input type="checkbox" id="deep-think-toggle">
-                            <span class="slider"></span>
-                        </div>
-                    </label>
-                    <div id="active-prompt-capsule" style="background: #edebe9; color: #605e5c; padding: 2px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; border: 1px solid #e1dfdd;" onclick="switchTab('prompt')">...</div>
-                </div>
+<main id="app-body" style="padding: 15px; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; flex: 1; overflow-y: auto; overflow-x: hidden; gap: 15px;"> 
+<div style="flex: 0 0 auto; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; color: #605e5c; background: transparent;"> 
+<div class="audio-toggle" data-type="rainy" style="cursor: pointer; transition: opacity 0.3s;" title="Rain"> 
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg> 
+</div> 
+<div class="audio-toggle" data-type="sun" style="cursor: pointer; transition: opacity 0.3s;" title="Sun"> 
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg> 
+</div> 
+<div class="audio-toggle" data-type="coffee" style="cursor: pointer; transition: opacity 0.3s;" title="Coffee"> 
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg> 
+</div> 
+<div class="audio-toggle" data-type="river" style="cursor: pointer; transition: opacity 0.3s;" title="River/Relax"> 
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg> 
+</div> 
+<div class="audio-toggle" data-type="ocean" style="cursor: pointer; transition: opacity 0.3s;" title="Ocean"> 
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg> 
+</div> 
+<div class="audio-toggle" data-type="fire" style="cursor: pointer; transition: opacity 0.3s;" title="Fire"> 
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg> 
+</div> 
+<button id="stop-audio-btn" style="display: none; background-color: transparent; color: inherit; border: none; padding: 0; cursor: pointer; margin-left: 4px; transition: opacity 0.3s; align-items: center; justify-content: center;" title="Stop"> 
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/></svg> 
+</button> 
+</div> 
 
-                <div style="display: flex; align-items: flex-end; padding: 4px 12px 10px 12px;">
-                    <textarea id="ai-input" placeholder="Create With Me" style="flex: 1; border: none; resize: none; padding: 0; margin: 0; font-size: 13px; outline: none; line-height: 20px; height: 20px; max-height: 80px; color: #605e5c;" rows="1" oninput="this.style.height = '20px'; this.style.height = this.scrollHeight + 'px';"></textarea>
-                    <button id="ai-send-btn" style="background-color: #e1dfdd; color: #605e5c; border: none; border-radius: 50%; width: 26px; height: 26px; margin-left: 8px; cursor: pointer; font-weight: bold;">⏎</button>
-                </div>
-            </div>
-        </div>
+<div style="flex: 0 0 auto; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; position: relative;"> 
+<h1 id="time-display" style="font-size: 80px; color: #605e5c; margin: 0; transform: scale(0.6); transform-origin: center center; transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); line-height: 1; z-index: 2;">25:00</h1> 
+<div id="controls-wrapper" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-top: -10px; z-index: 1;"> 
+<div id="slider-container" style="margin: 0 0 10px 0; width: 80%; text-align: center;"> 
+<input type="range" id="time-slider" min="20" max="120" step="5" value="25"> 
+</div> 
+<button id="start-btn" style="background-color: #e1dfdd; color: #605e5c; font-weight: 600; border: none; padding: 6px 30px; border-radius: 15px; cursor: pointer; font-size: 14px; transition: all 0.2s;">Start</button> 
+</div> 
+<button id="give-up-btn" style="display: none; position: absolute; bottom: 0; background: transparent; color: #999; border: none; padding: 5px; cursor: pointer; font-size: 12px; text-decoration: underline;">Give up</button> 
+</div> 
 
-        <div style="flex: 0 0 160px; height: 160px; display: flex; flex-direction: column; border-top: 1px solid #e1dfdd; padding-top: 10px;">
-            <div style="font-size: 12px; color: #605e5c; margin-bottom: 8px; font-weight: 600;">Writing Progress</div>
-            <div id="history-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
-        </div>
-    </main>
+<div style="flex: 1 1 auto; min-height: 250px; display: flex; flex-direction: column; border: 1px solid #e1dfdd; border-radius: 8px; overflow: hidden; background: #faf9f8;"> 
+<div style="padding: 8px 12px; border-bottom: 1px solid #d2d0ce; display: flex; align-items: center; gap: 8px; background: #e1dfdd; border-top-left-radius: 8px; border-top-right-radius: 8px;"> 
+<select id="api-provider" class="model-select" title="点击切换模型" style="flex: 0 0 auto;"> 
+<option value="deepseek">DeepSeek</option> 
+<option value="glm">智谱 GLM</option> 
+</select> 
+<div id="inline-api-container" style="flex: 1; display: flex; align-items: center; background: white; border-radius: 4px; padding: 2px 8px; border: 1px solid #c8c6c4; position: relative;"> 
+<input type="password" id="inline-api-key" placeholder="输入当前模型 Key，回车保存" style="width: 100%; border: none; outline: none; background: transparent; font-size: 12px; color: #605e5c;"> 
+<span id="api-save-check" style="display: none; color: #107c10; font-size: 12px; margin-left: 4px; position: absolute; right: 8px;">✓</span> 
+</div> 
+</div> 
+<div id="chat-history" style="flex: 1; padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; font-size: 13px;"> 
+<div style="align-self: flex-start; background: #edebe9; padding: 8px 12px; border-radius: 12px; border-top-left-radius: 2px; max-width: 85%; color: #605e5c;"> 
+你好！和我一起创作吧！ 
+</div> 
+</div> 
+<div style="background: white; border-top: 1px solid #e1dfdd; display: flex; flex-direction: column;"> 
+<div style="padding: 8px 12px 4px 12px; display: flex; align-items: center; justify-content: space-between;"> 
+<label class="think-toggle-wrapper" title="开启后AI进行深层次推演"> 
+<span style="font-size: 12px; font-weight: 500; color: #8a8886;">✨ 深度思考</span> 
+<div class="switch"> 
+<input type="checkbox" id="deep-think-toggle"> 
+<span class="slider"></span> 
+</div> 
+</label> 
+<div id="active-prompt-capsule" style="background: #edebe9; color: #605e5c; padding: 2px 10px; border-radius: 12px; font-size: 11px; cursor: pointer; transition: background 0.2s; border: 1px solid #e1dfdd;" onclick="switchTab('prompt')" title="点击管理提示词"> 
+... 
+</div> 
+</div> 
 
-    <main id="prompt-body" style="display: none; padding: 15px; flex-direction: column; flex: 1; background-color: #edebe9;">
-        <div style="display: flex; justify-content: flex-end;"><button onclick="addNewPrompt()" style="background: transparent; border: none; color: #a19f9d; font-size: 18px; cursor: pointer;">+</button></div>
-        <div id="prompt-list" style="width: 100%;"></div>
-        <div id="prompt-card-container" style="width: 100%;"></div>
-    </main>
+<div style="display: flex; align-items: flex-end; padding: 4px 12px 10px 12px;"> 
+<textarea id="ai-input" placeholder="Create With Me" style="flex: 1; border: none; resize: none; padding: 0; margin: 0; font-family: inherit; font-size: 13px; outline: none; line-height: 20px; height: 20px; max-height: 80px; overflow-y: auto; color: #605e5c;" rows="1" oninput="this.style.height = '20px'; this.style.height = this.scrollHeight + 'px';"></textarea> 
+<button id="ai-send-btn" style="background-color: #e1dfdd; color: #605e5c; border: none; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; margin-left: 8px; cursor: pointer; font-size: 14px; font-weight: bold; transition: all 0.2s;" title="发送">⏎</button> 
+</div> 
+</div> 
+</div> 
 
-    <main id="archive-body" style="display: none; padding: 15px; flex-direction: column; flex: 1; background-color: #edebe9;">
-        <div id="archive-doc-list" style="width: 100%;"></div>
-        <div id="archive-card-container" style="width: 100%;"></div>
-    </main>
+<div style="flex: 0 0 160px; height: 160px; display: flex; flex-direction: column; border-top: 1px solid #e1dfdd; padding-top: 10px;"> 
+<div style="font-size: 12px; color: #605e5c; margin-bottom: 8px; font-weight: 600;">Writing Progress</div> 
+<div id="history-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"> 
+<div style="font-size: 12px; color: #999; text-align: center; margin-top: 10px;">暂无记录</div> 
+</div> 
+</div> 
+</main> 
 
-    <script type="text/javascript" src="taskpane.js"></script>
-</body>
+<main id="prompt-body" style="display: none; padding: 15px; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; flex-direction: column; flex: 1; overflow-y: auto; gap: 15px; background-color: #edebe9;"> 
+<div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: -10px;"> 
+<button onclick="addNewPrompt()" style="background: transparent; border: none; color: #a19f9d; font-size: 18px; cursor: pointer; padding: 0 5px; font-weight: 300;" title="新建提示词">+</button> 
+</div> 
+<div id="prompt-list" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid #e1dfdd; width: 100%;"></div> 
+<div id="prompt-card-container" style="display: flex; flex-direction: column; align-items: center; width: 100%;"></div> 
+</main> 
+
+<main id="archive-body" style="display: none; padding: 15px; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; flex-direction: column; flex: 1; overflow-y: auto; gap: 15px; background-color: #edebe9;"> 
+<div id="archive-doc-list" style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid #e1dfdd; width: 100%;"></div> 
+<div id="archive-card-container" style="display: flex; flex-direction: column; align-items: center; width: 100%;"></div> 
+</main> 
+
+<script type="text/javascript" src="taskpane.js"></script> 
+</body> 
 </html>
