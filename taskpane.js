@@ -1,3 +1,4 @@
+// 全局状态变量
 let timer;
 let timeLeft;
 let isRunning = false;
@@ -14,6 +15,9 @@ let customPrompts = [];
 let activePromptId = null;
 let showAllPrompts = false;
 
+// 🔒 密钥内存兜底机制（防止 Mac Word 禁用 localStorage）
+let runtimeKeys = { deepseek: "", glm: "" };
+
 
 Office.onReady(async (info) => {
     if (info.host === Office.HostType.Word) {
@@ -24,74 +28,132 @@ Office.onReady(async (info) => {
             }
         } catch(e) {}
         
-        // 初始化存储数据
+        // 初始化各个模块
         renderTable();
         initPrompts();
         setupInlineApiKeyUI(); // ⚡️ 激活全新的顶部栏 API Key 逻辑
 
-
+        // 绑定倒计时控件
         const slider = document.getElementById("time-slider");
         const display = document.getElementById("time-display");
         const startBtn = document.getElementById("start-btn");
         const giveUpBtn = document.getElementById("give-up-btn");
+        
+        // 绑定音频控件
         const stopAudioBtn = document.getElementById("stop-audio-btn");
+        const audioToggles = document.querySelectorAll(".audio-toggle");
+        
+        // 绑定 AI 聊天控件
         const aiInput = document.getElementById("ai-input");
         const aiSendBtn = document.getElementById("ai-send-btn");
         
-        // 🔒 安全强化：绑定保存 Key 的按钮
-        const saveApiBtn = document.getElementById("save-api-keys");
-        if(saveApiBtn) saveApiBtn.onclick = saveApiKeysToStorage;
+        // 滑块事件
+        if(slider) {
+            slider.oninput = function() {
+                if (!isRunning) {
+                    display.innerText = `${this.value}:00`;
+                    timeLeft = this.value * 60;
+                }
+            };
+        }
 
-        slider.oninput = function() {
-            if (!isRunning) {
-                display.innerText = `${this.value}:00`;
-                timeLeft = this.value * 60;
-            }
-        };
+        if(startBtn) startBtn.onclick = () => startTimer();
+        if(giveUpBtn) giveUpBtn.onclick = () => stopTimer(true);
 
-        startBtn.onclick = () => startTimer();
-        giveUpBtn.onclick = () => stopTimer(true);
-
-        const audioToggles = document.querySelectorAll(".audio-toggle");
         audioToggles.forEach(toggle => {
             toggle.onclick = function() {
                 const type = this.getAttribute("data-type");
                 playAudio(type, this);
             };
         });
-        stopAudioBtn.onclick = () => stopAllAudio();
+        if(stopAudioBtn) stopAudioBtn.onclick = () => stopAllAudio();
 
-        aiSendBtn.onclick = () => handleAiChat();
-        aiInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault(); 
-                handleAiChat();
-            }
-        });
+        if(aiSendBtn) aiSendBtn.onclick = () => handleAiChat();
+        if(aiInput) {
+            aiInput.addEventListener('keydown', function(e) {
+                if ((e.key === 'Enter' || e.keyCode === 13) && !e.shiftKey) {
+                    e.preventDefault(); 
+                    handleAiChat();
+                }
+            });
+        }
     }
 });
 
-// ==================== 🔒 安全强化：Key 管理逻辑 ====================
+// ==================== ⚡️ 全新：内联 API Key 逻辑（防沙盒拦截版） ====================
 
-function saveApiKeysToStorage() {
-    const dsKey = document.getElementById("ds-key-input").value.trim();
-    const glmKey = document.getElementById("glm-key-input").value.trim();
-    
-    if (dsKey) localStorage.setItem('writer_ds_key', dsKey);
-    if (glmKey) localStorage.setItem('writer_glm_key', glmKey);
-    
-    alert("API 设置已安全保存至本地设备。");
+function getApiKey(provider) {
+    if (runtimeKeys[provider]) return runtimeKeys[provider];
+    try {
+        let key = localStorage.getItem(provider === 'deepseek' ? 'writer_ds_key' : 'writer_glm_key');
+        if (key) runtimeKeys[provider] = key;
+        return key || "";
+    } catch(e) { 
+        return ""; 
+    }
 }
 
-function loadStoredApiKeys() {
-    const dsKey = localStorage.getItem('writer_ds_key');
-    const glmKey = localStorage.getItem('writer_glm_key');
-    
-    if (dsKey && document.getElementById("ds-key-input")) {
-        document.getElementById("ds-key-input").value = dsKey;
+function setApiKey(provider, key) {
+    runtimeKeys[provider] = key; // 内存兜底
+    try {
+        localStorage.setItem(provider === 'deepseek' ? 'writer_ds_key' : 'writer_glm_key', key);
+    } catch(e) {
+        console.warn("localStorage 被禁用，密钥已保存在当前会话内存中。");
     }
-    if (glmKey && document.getElementById("glm-key-input")) {
-        document.getElementById("glm-key-input").value = glmKey;
+}
+
+function setupInlineApiKeyUI() {
+    const providerSelect = document.getElementById("api-provider");
+    const keyInput = document.getElementById("inline-api-key");
+    const container = document.getElementById("inline-api-container");
+    const checkIcon = document.getElementById("api-save-check");
+
+    if(!providerSelect || !keyInput) return; // 安全检查
+
+    // 1. 初始化时读取
+    updateInputDisplay();
+
+    // 2. 切换时更新
+    providerSelect.addEventListener("change", () => {
+        updateInputDisplay();
+    });
+
+    // 3. 监听回车保存
+    keyInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.keyCode === 13) {
+            e.preventDefault();
+            const currentProvider = providerSelect.value;
+            const newKey = keyInput.value.trim();
+
+            if(!newKey) {
+                addChatMessage("⚠️ 密钥不能为空，请重新输入。", "ai");
+                return;
+            }
+            
+            // 保存逻辑
+            setApiKey(currentProvider, newKey);
+
+            // 绿色闪烁动画
+            container.classList.remove("flash-success");
+            void container.offsetWidth; // 触发重绘
+            container.classList.add("flash-success");
+            checkIcon.style.display = "inline";
+            setTimeout(() => { checkIcon.style.display = "none"; }, 2000);
+            
+            keyInput.blur(); // 收起键盘
+            
+            // 💡 视觉确认：在聊天框明确通知用户保存成功！
+            const modelName = currentProvider === 'deepseek' ? 'DeepSeek' : '智谱 GLM';
+            addChatMessage(`✅ ${modelName} 密钥已保存至当前会话！请在下方输入文字开始创作。`, 'ai');
+            
+            const chatInput = document.getElementById("ai-input");
+            if(chatInput) chatInput.focus();
+        }
+    });
+
+    function updateInputDisplay() {
+        const currentProvider = providerSelect.value;
+        keyInput.value = getApiKey(currentProvider);
     }
 }
 
@@ -173,9 +235,12 @@ function saveRecord(count, duration, docName) {
     wordHistory.unshift({ time: timeStr, count: count, duration: duration });
     if (wordHistory.length > 5) wordHistory.pop();
     renderTable();
-    const db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]');
-    db.push({ docName, date: dateStr, time: timeStr, duration, count, timestamp: now.getTime() });
-    localStorage.setItem('writerCompanionDB', JSON.stringify(db));
+    
+    try {
+        const db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]');
+        db.push({ docName, date: dateStr, time: timeStr, duration, count, timestamp: now.getTime() });
+        localStorage.setItem('writerCompanionDB', JSON.stringify(db));
+    } catch(e) {} // 忽略存储错误
 }
 
 function renderTable() {
@@ -196,7 +261,9 @@ function renderTable() {
 
 // ==================== 档案逻辑 ====================
 function renderArchive() {
-    const db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]');
+    let db = [];
+    try { db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]'); } catch(e){}
+    
     let docLastUsed = {};
     db.forEach(r => { if (!docLastUsed[r.docName] || r.timestamp > docLastUsed[r.docName]) docLastUsed[r.docName] = r.timestamp || 0; });
     let sortedDocs = Object.keys(docLastUsed).sort((a, b) => docLastUsed[b] - docLastUsed[a]);
@@ -242,9 +309,11 @@ function deleteDocRecords(docName) {
         }, 3000);
         return;
     }
-    let db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]');
-    db = db.filter(r => r.docName !== docName);
-    localStorage.setItem('writerCompanionDB', JSON.stringify(db));
+    try {
+        let db = JSON.parse(localStorage.getItem('writerCompanionDB') || '[]');
+        db = db.filter(r => r.docName !== docName);
+        localStorage.setItem('writerCompanionDB', JSON.stringify(db));
+    } catch(e) {}
     if (selectedArchiveDoc === docName) selectedArchiveDoc = null;
     renderArchive();
 }
@@ -259,7 +328,6 @@ function renderArchiveCard(docName, db) {
     if (records.length === 0) return;
     const todayStr = new Date().toLocaleDateString('zh-CN');
     
-    // 🔒 修复：生成唯一图表ID，防止异步渲染导致冲突
     const safeName = docName.replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '');
     const L_id = `L_${safeName}_${Date.now()}`;
     const B_id = `B_${safeName}_${Date.now()}`;
@@ -272,7 +340,7 @@ function renderArchiveCard(docName, db) {
     setTimeout(() => {
         const todayData = records.filter(r => r.date === todayStr);
         const ctxLEl = document.getElementById(L_id);
-        if(!ctxLEl) return; // 确保 DOM 依然存在才渲染
+        if(!ctxLEl) return; 
         const ctxL = ctxLEl.getContext('2d');
         archiveCharts.push(new Chart(ctxL, { type: 'line', data: { labels: todayData.map(r => r.time), datasets: [{ data: todayData.map(r => r.count), borderColor: '#605e5c', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }));
         
@@ -289,11 +357,16 @@ function initPrompts() {
     const defaultPrompts = [
         { id: 'p_default_1', title: '基础润色', content: '你是一个资深的文字编辑和排版专家。请帮我润色和优化发给你的文字，使其表达更流畅、专业。直接输出润色后的结果，不要加上废话。' }
     ];
-    customPrompts = JSON.parse(localStorage.getItem('writerPrompts')) || defaultPrompts;
-    if (customPrompts.length === 0) customPrompts = defaultPrompts; 
     
-    activePromptId = localStorage.getItem('writerActivePrompt') || customPrompts[0].id;
-    if (!customPrompts.find(p => p.id === activePromptId)) activePromptId = customPrompts[0].id;
+    try {
+        customPrompts = JSON.parse(localStorage.getItem('writerPrompts')) || defaultPrompts;
+        activePromptId = localStorage.getItem('writerActivePrompt');
+    } catch(e) {
+        customPrompts = defaultPrompts;
+    }
+    
+    if (customPrompts.length === 0) customPrompts = defaultPrompts; 
+    if (!activePromptId || !customPrompts.find(p => p.id === activePromptId)) activePromptId = customPrompts[0].id;
     
     updatePromptCapsule();
 }
@@ -305,8 +378,10 @@ function updatePromptCapsule() {
 }
 
 function savePromptsData() {
-    localStorage.setItem('writerPrompts', JSON.stringify(customPrompts));
-    localStorage.setItem('writerActivePrompt', activePromptId);
+    try {
+        localStorage.setItem('writerPrompts', JSON.stringify(customPrompts));
+        localStorage.setItem('writerActivePrompt', activePromptId);
+    } catch(e) {}
     updatePromptCapsule();
 }
 
@@ -428,18 +503,18 @@ async function handleAiChat() {
     const text = inputEl.value.trim();
     if (!text) return;
 
-    const provider = document.getElementById('api-provider').value;
-    const isDeepThink = document.getElementById('deep-think-toggle').checked;
-
-    const storedDsKey = localStorage.getItem('writer_ds_key');
-    const storedGlmKey = localStorage.getItem('writer_glm_key');
+    const providerSelect = document.getElementById('api-provider');
+    if(!providerSelect) return;
+    const provider = providerSelect.value;
     
-    if (provider === 'deepseek' && !storedDsKey) {
-        addChatMessage("⚠️ 未检测到 DeepSeek Key，请在设置中输入并保存。", 'ai');
-        return;
-    }
-    if (provider === 'glm' && !storedGlmKey) {
-        addChatMessage("⚠️ 未检测到 GLM Key，请在设置中输入并保存。", 'ai');
+    const thinkToggle = document.getElementById('deep-think-toggle');
+    const isDeepThink = thinkToggle ? thinkToggle.checked : false;
+
+    // 💡 从强化的 getApiKey 获取密钥（即便跨域隔离也能读到内存）
+    const apiKey = getApiKey(provider);
+    
+    if (!apiKey) {
+        addChatMessage(`⚠️ 未检测到 ${provider === 'deepseek' ? 'DeepSeek' : '智谱 GLM'} 密钥。请在顶部文本框输入您的 sk- 开头的密钥，然后【按下回车键】保存。`, 'ai');
         return;
     }
 
@@ -448,16 +523,13 @@ async function handleAiChat() {
     inputEl.style.height = '20px';
     
     const loadingText = "连接中...";
-    // 插入一个临时的 loading 状态
     addChatMessage(loadingText, 'ai', true);
     
     const activeP = customPrompts.find(p => p.id === activePromptId) || customPrompts[0];
     const systemPromptContent = activeP.content || "你是一个资深的文字编辑...";
 
     let apiUrl = '';
-    let apiKey = (provider === 'deepseek') ? storedDsKey : storedGlmKey;
     
-    // 💡 修复：移除不兼容的 thinking 参数，增加 stream: true
     let requestBody = {
         messages: [
             { role: "system", content: systemPromptContent }, 
@@ -484,11 +556,14 @@ async function handleAiChat() {
             body: JSON.stringify(requestBody)
         });
 
-        if (!response.ok) throw new Error(`连接失败 (HTTP ${response.status})`);
+        if (!response.ok) {
+            // 如果接口返回错误，把具体的错误码打印出来方便排查
+            const errBody = await response.text();
+            throw new Error(`HTTP ${response.status} - 接口拒绝连接。请检查密钥是否正确、是否欠费，或者网络是否被拦截。\n详情: ${errBody}`);
+        }
         
         removeLoadingMessage();
         
-        // 💡 创建一个空白的 AI 消息气泡，用来承载流式打字输出
         const streamMsgDiv = addChatMessage("", 'ai');
         let fullContent = "";
 
@@ -503,7 +578,6 @@ async function handleAiChat() {
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
             
-            // 保留最后一个可能不完整的分块
             buffer = lines.pop(); 
 
             for (const line of lines) {
@@ -516,17 +590,15 @@ async function handleAiChat() {
                         const data = JSON.parse(dataStr);
                         const delta = data.choices[0].delta;
                         
-                        // 💡 核心：只提取 content，忽略思考过程 (reasoning_content)
                         if (delta && delta.content) {
                             fullContent += delta.content;
                             streamMsgDiv.innerText = fullContent;
                             
-                            // 保持滚动条在最底部
                             const chatHistory = document.getElementById("chat-history");
                             chatHistory.scrollTop = chatHistory.scrollHeight;
                         }
                     } catch (e) {
-                        // 忽略单个残缺 JSON 解析错误，继续读取流
+                        // 忽略单个分片解析错误
                     }
                 }
             }
@@ -534,11 +606,10 @@ async function handleAiChat() {
 
     } catch (e) { 
         removeLoadingMessage(); 
-        addChatMessage(`⚠️ 报错: ${e.message}\n请检查网络或确认 API Key 是否有效。`, 'ai'); 
+        addChatMessage(`⚠️ 发生错误: \n${e.message}`, 'ai'); 
     }
 }
 
-// 💡 更新：返回创建的 DOM 元素，以支持后续的流式文本拼接
 function addChatMessage(text, sender, isLoading = false) {
     const chatHistory = document.getElementById("chat-history");
     if(!chatHistory) return null;
