@@ -298,6 +298,19 @@ function renderArchiveCard(docName, db) {
     if(!container) return; container.innerHTML = '';
     archiveCharts.forEach(c => c.destroy()); archiveCharts = [];
     const records = db.filter(r => r.docName === docName);
+
+    // 👇 --- 新增逻辑：将记录按“天”进行字数汇总 ---
+    const dailyData = {};
+    records.forEach(r => {
+        if (!dailyData[r.date]) {
+            dailyData[r.date] = 0;
+        }
+        dailyData[r.date] += r.count;
+    });
+    const dailyLabels = Object.keys(dailyData);
+    const dailyCounts = Object.values(dailyData);
+    // 👆 -----------------------------------------
+
     const card = document.createElement('div');
     card.style.cssText = "aspect-ratio: 3/4; width: 92%; background: white; border: 1px solid #e1dfdd; border-radius: 6px; padding: 15px; display: flex; flex-direction: column;";
     const L_id = `L_${Date.now()}`; const B_id = `B_${Date.now()}`;
@@ -339,10 +352,35 @@ function renderArchiveCard(docName, db) {
     document.getElementById(`del-container-${L_id}`).appendChild(deleteBtn);
 
     setTimeout(() => {
+        // 折线图：保持你的原逻辑不变，继续展示每次记录的时间节点和字数
         const ctxL = document.getElementById(L_id).getContext('2d');
-        archiveCharts.push(new Chart(ctxL, { type: 'line', data: { labels: records.map(r => r.time), datasets: [{ data: records.map(r => r.count), borderColor: '#605e5c' }] }, options: { responsive: true, maintainAspectRatio: false } }));
+        archiveCharts.push(new Chart(ctxL, { 
+            type: 'line', 
+            data: { labels: records.map(r => r.time), datasets: [{ data: records.map(r => r.count), borderColor: '#605e5c' }] }, 
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, legend: { display: false } } 
+        }));
+        
+        // 柱状图：应用新逻辑
         const ctxB = document.getElementById(B_id).getContext('2d');
-        archiveCharts.push(new Chart(ctxB, { type: 'bar', data: { labels: records.map(r => r.date), datasets: [{ data: records.map(r => r.count), backgroundColor: '#605e5c' }] }, options: { responsive: true, maintainAspectRatio: false } }));
+        archiveCharts.push(new Chart(ctxB, { 
+            type: 'bar', 
+            data: { 
+                labels: dailyLabels, // 使用聚合后的日期作为X轴
+                datasets: [{ 
+                    data: dailyCounts, // 使用聚合后的单日总字数作为Y轴
+                    backgroundColor: '#605e5c',
+                    maxBarThickness: 30 // 👇 限制最大宽度，数据少时不会太宽，数据多时会自适应变细
+                }] 
+            }, 
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false } // 👇 隐藏图注 (适配 Chart.js v3+)
+                },
+                legend: { display: false } // 👇 隐藏图注 (兼容 Chart.js v2)
+            } 
+        }));
     }, 0);
 }
 
