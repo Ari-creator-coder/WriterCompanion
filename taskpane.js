@@ -213,7 +213,13 @@ async function completeSession() {
         const body = context.document.body;
         body.load("text"); await context.sync();
         const text = body.text;
-        const count = (text.match(/[\u4e00-\u9fa5]/g) || []).length + text.replace(/[\u4e00-\u9fa5]/g, ' ').trim().split(/\s+/).filter(w => w.length > 0).length;
+        
+        // 👇 --- 新增逻辑：方案二（类似 Word 的严格字/词块统计） ---
+        const chineseCount = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+        const enAndNumCount = (text.match(/[a-zA-Z0-9]+/g) || []).length;
+        const count = chineseCount + enAndNumCount;
+        // 👆 ----------------------------------------------------
+
         saveRecord(count, document.getElementById("time-slider").value, currentGlobalDocName);
     });
 }
@@ -300,12 +306,13 @@ function renderArchiveCard(docName, db) {
     const records = db.filter(r => r.docName === docName);
 
     // 👇 --- 新增逻辑：将记录按“天”进行字数汇总 ---
+    // 👇 --- 新增逻辑：获取当日最后一次记录的字数 ---
     const dailyData = {};
     records.forEach(r => {
-        if (!dailyData[r.date]) {
-            dailyData[r.date] = 0;
-        }
-        dailyData[r.date] += r.count;
+        // 因为你的数据存入时是按时间顺序往后追加的
+        // 所以直接用 '=' 覆盖赋值。
+        // 当循环结束时，同一天的数据里，留在字典中的自然就是最后一次的记录。
+        dailyData[r.date] = r.count; 
     });
     const dailyLabels = Object.keys(dailyData);
     const dailyCounts = Object.values(dailyData);
